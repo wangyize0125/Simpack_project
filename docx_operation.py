@@ -10,6 +10,8 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.dml import MSO_THEME_COLOR_INDEX
 
+import app_constants
+
 
 class DocxFile:
     """

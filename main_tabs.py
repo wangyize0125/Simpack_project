@@ -64,6 +64,7 @@ class MainTab(QTabWidget):
         self.choose_out_fld_spk = QPushButton(self.spk_res_only)
         self.docx_flag_spk = QCheckBox(self.spk_res_only)
         self.docx_spk = QLineEdit(self.spk_res_only)
+        self.table_items_spk = []
 
         # change simpack only ui design
         self.spk_res_only_ui()
@@ -190,12 +191,18 @@ class MainTab(QTabWidget):
         rows = len(self.file_names_spk)
         self.spk_file_table.setRowCount(rows)
 
+        # record new instance
+        self.table_items_spk.clear()
+
         # display filename
         idx = 0
         for file_name in self.file_names_spk:
             file = QTableWidgetItem(file_name)
-            file.setCheckState(Qt.Checked)
+            file.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            file.setCheckState(Qt.Unchecked)
             self.spk_file_table.setItem(idx, 0, file)
+
+            self.table_items_spk.append(self)
 
             idx += 1
 
