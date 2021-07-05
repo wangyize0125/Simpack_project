@@ -156,7 +156,7 @@ class MainTab(QTabWidget):
         files, ok = QFileDialog.getOpenFileNames(self, "Choose Simpack Results", os.getcwd())
 
         if not ok:
-            msg_box = public_widgets.MsgBox(self, "Read filename error!")
+            pass
         else:
             self.file_names_spk.update(files)
 
