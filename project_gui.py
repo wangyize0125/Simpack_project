@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWidgets import QStatusBar
 from PyQt5.QtGui import QIcon
 
+import images_qr
 import app_constants
 from main_tabs import MainTab
 
@@ -25,7 +26,7 @@ class SpkProj(QMainWindow):
         # window title
         self.setWindowTitle(constants.app_name)
         # window icon
-        self.setWindowIcon(QIcon("./resources/logo.ico"))
+        self.setWindowIcon(QIcon(":resources/logo.ico"))
 
         # resize the window, for convenience, the size is fixed
         geom = QApplication.desktop().screenGeometry()
