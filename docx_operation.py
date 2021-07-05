@@ -51,10 +51,10 @@ class DocxFile:
         self.num_fig += 1
 
         # add figure
-        parag = self.doc.add_paragraph()
-        parag.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        run = parag.add_run("")
-        run.add_picture(filename, width=Cm(self.fig_x_max))
+        paragraph = self.doc.add_paragraph()
+        paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        run = paragraph.add_run("")
+        run.add_picture(filename, width=Cm(size[0] if size[0] < self.fig_x_max else self.fig_x_max))
         # add title
         self.doc.add_paragraph("Fig. {}. ".format(self.num_fig) + title, style=self.fig_caption)
 

@@ -45,7 +45,8 @@ class PlotSpk(QObject):
 
     def run(self):
         # output docx file
-        self.docx_file.add_heading(os.path.basename(self.filename), 1)
+        if self.docx_file:
+            self.docx_file.add_heading(os.path.basename(self.filename), 1)
 
         spk_res = load_spk_result.SpkResult(self.filename)
 
@@ -135,7 +136,8 @@ class PlotSpk(QObject):
         plt.close()
 
         # output docx file
-        self.docx_file.add_fig(output_name + ".png", size, output_name.split("/")[-1])
+        if self.docx_file:
+            self.docx_file.add_fig(output_name + ".png", size, output_name.split("/")[-1])
 
         return
 

@@ -41,6 +41,8 @@ class MainTab(QTabWidget):
         self.display_x = QLineEdit(self.spk_res_only)
         self.display_y = QLineEdit(self.spk_res_only)
 
+        self.default_word_filename = "Simpack result"
+
         # upgrade progress bar
         self.step_size = 10
 
@@ -164,7 +166,7 @@ class MainTab(QTabWidget):
         # docx name line edit
         self.docx_spk.setFixedSize(self.width() * 0.20, self.display_x.height())
         self.docx_spk.move(self.width() * 0.09, self.height() * 0.41)
-        self.docx_spk.setPlaceholderText("Word file name".format(self.default_x))
+        self.docx_spk.setPlaceholderText("Default name: {})".format(self.default_word_filename))
         self.docx_spk.setVisible(False)
 
         return
@@ -278,11 +280,14 @@ class MainTab(QTabWidget):
         size = (x, y)
 
         # check whether output word result
-        word_file_name = self.docx_spk.text()
-        if word_file_name == "":
-            pass
+        if self.docx_flag_spk.checkState():
+            word_file_name = self.docx_spk.text()
+            if word_file_name == "":
+                docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, self.default_word_filename))
+            else:
+                docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
         else:
-            docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
+            docx_file = None
 
         # enable progress bar
         self.bar_spk.setVisible(True); self.bar_spk.setValue(0)
@@ -295,6 +300,7 @@ class MainTab(QTabWidget):
             if self.spk_file_table.item(i, 0).checkState():
                 total_num += 1
         if total_num == 0:
+            self.bar_spk.setVisible(False)
             return
         else:
             self.step_size = self.bar_max / total_num
