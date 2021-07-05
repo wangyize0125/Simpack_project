@@ -1,0 +1,11 @@
+# mac system generated file
+.DS_Store
+
+# pycharm project file
+.idea/
+
+# python compilation
+__pycache__/
+
+# test data 
+data/

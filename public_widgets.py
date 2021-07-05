@@ -1,0 +1,19 @@
+# -*-coding:utf-8 -*-
+# @Time    : 2021/7/4 6:41 下午
+# @Author  : Yize Wang
+# @File    : public_widgets.py
+# @Software: PyCharm
+
+from PyQt5.QtWidgets import QMessageBox, QWidget
+
+
+class MsgBox(QMessageBox):
+    def __init__(self, parent: QWidget, msg):
+        super(MsgBox, self).__init__()
+
+        self.setFixedSize(parent.width() * 0.6, parent.height() * 0.3)
+        self.move((parent.width() - self.width()) // 2, (parent.height() - self.height()) // 2)
+
+        QMessageBox.critical(self, "Error", msg)
+
+        return
