@@ -6,11 +6,12 @@
 
 import os
 from PyQt5.QtWidgets import QWidget, QTabWidget, QPushButton, QAbstractItemView, QLabel, QProgressBar
-from PyQt5.QtWidgets import QFileDialog, QTableWidget, QTableWidgetItem, QLineEdit
+from PyQt5.QtWidgets import QFileDialog, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5 import QtGui
 
 import public_widgets
+import docx_operation
 import plot_spk_result
 
 
@@ -59,6 +60,8 @@ class MainTab(QTabWidget):
         self.bar_spk = QProgressBar(self.spk_res_only)
         self.bar_max = 1E8
         self.choose_out_fld_spk = QPushButton(self.spk_res_only)
+        self.docx_flag_spk = QCheckBox(self.spk_res_only)
+        self.docx_spk = QLineEdit(self.spk_res_only)
 
         # change simpack only ui design
         self.spk_res_only_ui()
@@ -148,6 +151,21 @@ class MainTab(QTabWidget):
         self.bar_spk.move(self.width() * 0.05, self.height() * 0.7)
         self.bar_spk.setRange(0, self.bar_max)
         self.bar_spk.setVisible(False)
+
+        # docx output check box
+        self.docx_flag_spk.move(self.width()*0.06, self.height() * 0.37)
+        self.docx_flag_spk.setCheckState(False)
+        self.docx_flag_spk.stateChanged.connect(self.docx_flap_changed)
+        docx_label = QLabel(self.spk_res_only)
+        docx_label.setText("Output results in word")
+        docx_label.setFixedSize(self.width() * 0.3, l_figure_size.height())
+        docx_label.move(self.width() * 0.09, self.height() * 0.358)
+
+        # docx name line edit
+        self.docx_spk.setFixedSize(self.width() * 0.20, self.display_x.height())
+        self.docx_spk.move(self.width() * 0.09, self.height() * 0.41)
+        self.docx_spk.setPlaceholderText("Word file name".format(self.default_x))
+        self.docx_spk.setVisible(False)
 
         return
 
@@ -259,6 +277,13 @@ class MainTab(QTabWidget):
             y = float(y)
         size = (x, y)
 
+        # check whether output word result
+        word_file_name = self.docx_spk.text()
+        if word_file_name == "":
+            pass
+        else:
+            docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
+
         # enable progress bar
         self.bar_spk.setVisible(True); self.bar_spk.setValue(0)
 
@@ -281,7 +306,7 @@ class MainTab(QTabWidget):
             if self.spk_file_table.item(i, 0).checkState():
                 # if it is checked, calculate the results
                 try:
-                    pthread = plot_spk_result.PlotSpk(self.spk_file_table.item(i, 0).text(), self.output_folder, size)
+                    pthread = plot_spk_result.PlotSpk(self.spk_file_table.item(i, 0).text(), self.output_folder, size, docx_file)
 
                     pthread.one_file_finished.connect(self.upgrade_bar)
                     pthread.run()
@@ -303,6 +328,12 @@ class MainTab(QTabWidget):
         self.bar_spk.setValue(self.bar_spk.value() + self.step_size / num_figure)
 
         QtGui.QGuiApplication.processEvents()
+
+        return
+
+    def docx_flap_changed(self):
+        # change the line edit's state
+        self.docx_spk.setVisible(not self.docx_spk.isVisible())
 
         return
 

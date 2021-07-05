@@ -12,6 +12,7 @@ from matplotlib.ticker import MultipleLocator
 from PyQt5.QtCore import pyqtSignal, QObject
 
 import load_spk_result
+import docx_operation
 
 matplotlib.rcParams['xtick.direction'] = 'in'
 matplotlib.rcParams['ytick.direction'] = 'in'
@@ -31,16 +32,21 @@ class PlotSpk(QObject):
 
     one_file_finished = pyqtSignal(int)            # finish one file trigger
 
-    def __init__(self, filename: str, output_folder: str, size: list):
+    def __init__(self, filename: str, output_folder: str, size: list, out_docx: docx_operation.DocxFile):
         super(PlotSpk, self).__init__()
 
         self.filename = filename
         self.output_folder = output_folder
         self.size = size
 
+        self.docx_file = out_docx
+
         return
 
     def run(self):
+        # output docx file
+        self.docx_file.add_heading(os.path.basename(self.filename), 1)
+
         spk_res = load_spk_result.SpkResult(self.filename)
 
         # calculate output file name prefix
@@ -85,11 +91,12 @@ class PlotSpk(QObject):
 
     def __plot(self, x: np.ndarray, y: np.ndarray, size, output_name):
         fig = plt.figure(figsize=size)
-        plt.title(output_name)
         plt.subplots_adjust(left=0.1, right=0.95, bottom=0.1, top=0.90)
 
-        ax = fig.add_subplot(111, label="Simpack")
+        # plot
+        ax = plt.subplot(111, label="Simpack")
         ax.plot(x, y)
+        ax.set_title(output_name.split("/")[-1])
 
         # automatic limit
         x_lim = (np.min(x), np.max(x))
@@ -124,12 +131,15 @@ class PlotSpk(QObject):
         ax2.xaxis.set_minor_locator(x_minor)
         ax2.xaxis.set_major_formatter(plt.NullFormatter())
 
-        plt.savefig(output_name + ".svg")
+        plt.savefig(output_name + ".png")
         plt.close()
+
+        # output docx file
+        self.docx_file.add_fig(output_name + ".png", size, output_name.split("/")[-1])
 
         return
 
 
 if __name__ == "__main__":
-    pthread = PlotSpk("./data/012_results/012_003.txt", "./data/012_results", (6, 6))
+    pthread = PlotSpk("./data/012_results/012_003.txt", "./data/012_results", (8, 4))
     pthread.run()
