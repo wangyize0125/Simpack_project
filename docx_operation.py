@@ -26,7 +26,7 @@ class DocxFile:
     def __init__(self, filename):
         self.filename = filename + ".docx"
 
-        self.doc = Document()
+        self.doc = Document(app_constants.word_template)
         self.styles = self.doc.styles
 
         self.num_fig = 0
@@ -74,6 +74,10 @@ class DocxFile:
 
 
 if __name__ == '__main__':
+    docx = Document()
+    docx.add_paragraph(" ")
+    docx.save("./template.docx")
+
     docx = DocxFile("./data/test")
 
     docx.add_fig("./data/012_results/012_003_Blade_1_fx.png", (8, 4), "012_003_Blade_1_fx")

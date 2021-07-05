@@ -9,3 +9,5 @@ app_name = "Simpack Project"
 window_size = 0.68
 
 tab_size = 0.9
+
+word_template = "./resources/template.docx"
