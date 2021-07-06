@@ -21,6 +21,9 @@ class MainTab(QTabWidget):
     """
 
     finish = pyqtSignal(str)
+    start = pyqtSignal()
+
+    filter_file_format = "Text Files (*.txt);;All Files (*)"
 
     def __init__(self, parent=None, size=0.9):
         # initialize father widget first
@@ -64,7 +67,6 @@ class MainTab(QTabWidget):
         self.choose_out_fld_spk = QPushButton(self.spk_res_only)
         self.docx_flag_spk = QCheckBox(self.spk_res_only)
         self.docx_spk = QLineEdit(self.spk_res_only)
-        self.table_items_spk = []
 
         # change simpack only ui design
         self.spk_res_only_ui()
@@ -88,6 +90,7 @@ class MainTab(QTabWidget):
         self.spk_file_table.setColumnCount(1)
         self.spk_file_table.setColumnWidth(0, self.spk_file_table.width())
         self.spk_file_table.setHorizontalHeaderLabels(["Filename"])
+        self.spk_file_table.cellClicked.connect(self.cell_clicked)
         self.spk_file_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         btn_pos = 0.5
@@ -128,7 +131,7 @@ class MainTab(QTabWidget):
         # display folder
         self.spk_display_folder.setFixedSize(self.width() * 0.6, self.spk_display_folder.height())
         self.spk_display_folder.move(self.width() * 0.35, self.height() * 0.9)
-        self.spk_display_folder.textChanged.connect(self.read_folder)
+        self.spk_display_folder.setFocusPolicy(Qt.NoFocus)
 
         # figure size
         l_figure_size = QLabel(self.spk_res_only)
@@ -174,7 +177,7 @@ class MainTab(QTabWidget):
 
     def choose_spk_files(self):
         # open files
-        files, ok = QFileDialog.getOpenFileNames(self, "Choose Simpack Results", os.getcwd())
+        files, ok = QFileDialog.getOpenFileNames(self, "Choose Simpack Results", os.getcwd(), self.filter_file_format)
 
         if not ok:
             pass
@@ -191,9 +194,6 @@ class MainTab(QTabWidget):
         rows = len(self.file_names_spk)
         self.spk_file_table.setRowCount(rows)
 
-        # record new instance
-        self.table_items_spk.clear()
-
         # display filename
         idx = 0
         for file_name in self.file_names_spk:
@@ -201,8 +201,6 @@ class MainTab(QTabWidget):
             file.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             file.setCheckState(Qt.Unchecked)
             self.spk_file_table.setItem(idx, 0, file)
-
-            self.table_items_spk.append(self)
 
             idx += 1
 
@@ -262,43 +260,7 @@ class MainTab(QTabWidget):
 
         return
 
-    def read_folder(self):
-        self.output_folder = self.spk_display_folder.text()
-
-        return
-
     def plot_result_spk(self):
-        # check the output folder exists
-        self.read_folder()  # read folder back
-        if not os.path.exists(self.output_folder):
-            os.mkdir(self.output_folder)
-
-        # calculate size of the figures
-        x = self.display_x.text()
-        y = self.display_y.text()
-        if x == "":
-            x = self.default_x
-        else:
-            x = float(x)
-        if y == "":
-            y = self.default_y
-        else:
-            y = float(y)
-        size = (x, y)
-
-        # check whether output word result
-        if self.docx_flag_spk.checkState():
-            word_file_name = self.docx_spk.text()
-            if word_file_name == "":
-                docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, self.default_word_filename))
-            else:
-                docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
-        else:
-            docx_file = None
-
-        # enable progress bar
-        self.bar_spk.setVisible(True); self.bar_spk.setValue(0)
-
         # plot the result one-by-one
         rows = self.spk_file_table.rowCount()
         # check how many cases are selected
@@ -306,40 +268,70 @@ class MainTab(QTabWidget):
         for i in range(rows):
             if self.spk_file_table.item(i, 0).checkState():
                 total_num += 1
+
         if total_num == 0:
-            self.bar_spk.setVisible(False)
-            return
+            # nothing to do
+            msg_box = public_widgets.MsgBox(self, "No file selected!")
         else:
+            # disable all the buttons on this tab
+            self.spk_res_only.setEnabled(False)
+
+            # calculate size of the figures
+            x = self.display_x.text()
+            y = self.display_y.text()
+            if x == "":
+                x = self.default_x
+            else:
+                x = float(x)
+            if y == "":
+                y = self.default_y
+            else:
+                y = float(y)
+            size = (x, y)
+
+            # check whether output word result
+            if self.docx_flag_spk.checkState():
+                word_file_name = self.docx_spk.text()
+                if word_file_name == "":
+                    docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, self.default_word_filename))
+                else:
+                    docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
+            else:
+                docx_file = None
+
+            # enable progress bar
+            self.bar_spk.setVisible(True)
+            # set zero of the progress bar
+            self.bar_spk.setValue(0)
+
             self.step_size = self.bar_max / total_num
 
-        # disable all btns on this tab
-        self.spk_res_only.setEnabled(False)
+            for i in range(rows):
+                if self.spk_file_table.item(i, 0).checkState():
+                    # if it is checked, calculate the results
+                    try:
+                        pthread = plot_spk_result.PlotSpk(self.spk_file_table.item(i, 0).text(), self.output_folder, size, docx_file)
 
-        for i in range(rows):
-            if self.spk_file_table.item(i, 0).checkState():
-                # if it is checked, calculate the results
-                try:
-                    pthread = plot_spk_result.PlotSpk(self.spk_file_table.item(i, 0).text(), self.output_folder, size, docx_file)
+                        pthread.one_file_finished.connect(self.upgrade_bar)
+                        pthread.run()
+                    except Exception as exc:
+                        err_box = public_widgets.ErrBox(self, str(exc))
 
-                    pthread.one_file_finished.connect(self.upgrade_bar)
-                    pthread.run()
-                except Exception as exc:
-                    msg_box = public_widgets.MsgBox(self, str(exc))
+            # trigger finish signal for parent widget
+            self.finish.emit("Simpack")
 
-        # enable all btns on this tab
-        self.spk_res_only.setEnabled(True)
+            # disable progress bar
+            self.bar_spk.setVisible(False)
 
-        # disable progress bar
-        self.bar_spk.setVisible(False)
-
-        # trigger finish signal for parent widget
-        self.finish.emit("Simpack")
+            # enable all buttons on this tab
+            self.spk_res_only.setEnabled(True)
 
         return
 
     def upgrade_bar(self, num_figure):
         self.bar_spk.setValue(self.bar_spk.value() + self.step_size / num_figure)
 
+        # process gui explicitly, otherwise the gui will break out
         QtGui.QGuiApplication.processEvents()
 
         return
@@ -347,6 +339,11 @@ class MainTab(QTabWidget):
     def docx_flap_changed(self):
         # change the line edit's state
         self.docx_spk.setVisible(not self.docx_spk.isVisible())
+
+        return
+
+    def cell_clicked(self, row, col):
+        self.spk_file_table.item(row, col).setCheckState(not self.spk_file_table.item(row, col).checkState())
 
         return
 
