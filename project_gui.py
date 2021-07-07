@@ -40,13 +40,19 @@ class SpkProj(QMainWindow):
         self.setStatusBar(self.status_bar)
 
         # widgets
-        self.main_tab = MainTab(self, constants.tab_size)
+        self.main_tab = MainTab(self)
         self.main_tab.finish.connect(self.finish_bar)
+        self.main_tab.start.connect(self.start_bar)
 
         return
 
     def finish_bar(self, software):
         self.status_bar.showMessage("Plot figures for {} finished!    Finished time: {}".format(software, datetime.datetime.now()))
+
+        return
+
+    def start_bar(self):
+        self.status_bar.clearMessage()
 
         return
 
