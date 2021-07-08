@@ -1,0 +1,49 @@
+# you need to specify the alias name and real name in GH-Bladed of the variables you want to read
+# ! And you must include a Time alias name here so that the program can plot the figures
+# left column is the alias name
+# right column is the real variable name in GH-Bladed, which must be as same as that one in the GH-Bladed
+# third column in this file means where the loads are output, the blade stations and tower stations which are nearest
+#   to this values are selected to output
+
+Time: Time from start of simulation: 0
+
+Rotor_speed: Rotor speed: 0
+Pitch_blade_1: PITCH1: 0
+Pitch_blade_2: PITCH2: 0
+Pitch_blade_3: PITCH3: 0
+Generator_torque: TorqueDemand: 0
+
+Blade_1_fx: Blade 1 Fx (Root axes): 0
+Blade_1_fy: Blade 1 Fy (Root axes): 0
+Blade_1_fz: Blade 1 Fz (Root axes): 0
+Blade_1_mx: Blade 1 Mx (Root axes): 0
+Blade_1_my: Blade 1 My (Root axes): 0
+Blade_1_mz: Blade 1 Mz (Root axes): 0
+
+Blade_2_fx: Blade 2 Fx (Root axes): 0
+Blade_2_fy: Blade 2 Fy (Root axes): 0
+Blade_2_fz: Blade 2 Fz (Root axes): 0
+Blade_2_mx: Blade 2 Mx (Root axes): 0
+Blade_2_my: Blade 2 My (Root axes): 0
+Blade_2_mz: Blade 2 Mz (Root axes): 0
+
+Blade_3_fx: Blade 3 Fx (Root axes): 0
+Blade_3_fy: Blade 3 Fy (Root axes): 0
+Blade_3_fz: Blade 3 Fz (Root axes): 0
+Blade_3_mx: Blade 3 Mx (Root axes): 0
+Blade_3_my: Blade 3 My (Root axes): 0
+Blade_3_mz: Blade 3 Mz (Root axes): 0
+
+Tower_bottom_fx: FXT: 0
+Tower_bottom_fy: FYT: 0
+Tower_bottom_fz: FZT: 0
+Tower_bottom_mx: MXT: 0
+Tower_bottom_my: MYT: 0
+Tower_bottom_mz: MZT: 0
+
+Tower_top_fx: FXT: 95
+Tower_top_fy: FYT: 95
+Tower_top_fz: FZT: 95
+Tower_top_mx: MXT: 95
+Tower_top_my: MYT: 95
+Tower_top_mz: MZT: 95
