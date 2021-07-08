@@ -4,6 +4,7 @@
 # @File    : project_gui.py
 # @Software: PyCharm
 
+import os
 import sys
 import datetime
 from PyQt5.QtWidgets import QApplication, QMainWindow
@@ -60,6 +61,9 @@ class SpkProj(QMainWindow):
 if __name__ == "__main__":
     # initialize an application instance
     app = QApplication(sys.argv)
+
+    if os.path.isfile("./debug"):
+        os.environ["SIMPACK_POST_PATH"] = "./debug"
 
     app_gui = SpkProj(app_constants)
     app_gui.show()

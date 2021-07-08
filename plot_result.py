@@ -5,11 +5,9 @@
 # @Software: PyCharm
 
 import os
-import re
 import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
-from PyQt5 import QtGui
 from matplotlib.ticker import MultipleLocator
 from PyQt5.QtCore import pyqtSignal, QObject
 
@@ -35,13 +33,13 @@ class PlotSpk(QObject):
 
     one_file_finished = pyqtSignal(int)            # finish one file trigger
 
-    def __init__(self, filename: str, output_folder: str, size: list, out_docx: docx_operation.DocxFile):
+    def __init__(self, var_file: str, filename: str, output_folder: str, size: list, out_docx: docx_operation.DocxFile):
         super(PlotSpk, self).__init__()
 
+        self.var_file = var_file
         self.filename = filename
         self.output_folder = output_folder
         self.size = size
-
         self.docx_file = out_docx
 
         return
@@ -51,45 +49,22 @@ class PlotSpk(QObject):
         if self.docx_file:
             self.docx_file.add_heading(os.path.basename(self.filename), 1)
 
-        spk_res = load_result.SpkResult(self.filename)
+        spk_res = load_result.SpkResult(self.var_file, self.filename)
+        res, order = spk_res.get_result(), spk_res.get_order()
 
         # calculate output file name prefix
-        file_prefix = os.path.basename(self.filename)  # project filename
-        file_prefix = ".".join(file_prefix.split(".")[0: -1])  # remove extension
-        file_prefix = os.path.join(self.output_folder, file_prefix)  # all prefix of the filenames
+        file_prefix = os.path.join(self.output_folder, pf.remove_suffix_of_file(self.filename)) + "_"
 
-        # pitch angle of blades
-        for blade_id in range(3):
-            self.__plot(spk_res.time, spk_res.pitch_blade[blade_id], self.size,
-                        file_prefix + "_Pitch_blade_{}".format(blade_id + 1))
-            self.one_file_finished.emit(spk_res.NUM_FIGURE)
+        time = None
+        for alias, value in res.items():
+            if alias.lower() == "time":
+                time = value
 
-        # generator torque
-        self.__plot(spk_res.time, spk_res.generator_torque, self.size, file_prefix + "_Generator_torque")
-        self.one_file_finished.emit(spk_res.NUM_FIGURE)
+        for alias in order:
+            if alias.lower() != "time":
+                self.__plot(time, res[alias], self.size, file_prefix + alias)
 
-        # generator speed
-        self.__plot(spk_res.time, spk_res.generator_speed, self.size, file_prefix + "_Generator_speed")
-        self.one_file_finished.emit(spk_res.NUM_FIGURE)
-
-        # blade force
-        for blade_id in range(3):
-            for force_id in range(6):
-                self.__plot(spk_res.time, spk_res.blade_force[blade_id][force_id], self.size,
-                            file_prefix + "_Blade_{}_{}".format(blade_id + 1, spk_res.forces[force_id]))
-                self.one_file_finished.emit(spk_res.NUM_FIGURE)
-
-        # tower bottom force
-        for force_id in range(6):
-            self.__plot(spk_res.time, spk_res.tower_btm_force[force_id], self.size,
-                        file_prefix + "_Tower_btm_{}".format(spk_res.forces[force_id]))
-            self.one_file_finished.emit(spk_res.NUM_FIGURE)
-
-        # tower top force
-        for force_id in range(6):
-            self.__plot(spk_res.time, spk_res.tower_top_force[force_id], self.size,
-                        file_prefix + "_Tower_top_{}".format(spk_res.forces[force_id]))
-            self.one_file_finished.emit(spk_res.NUM_FIGURE)
+                self.one_file_finished.emit(len(order) - 1)
 
         return
 
@@ -97,10 +72,14 @@ class PlotSpk(QObject):
         fig = plt.figure(figsize=size)
         plt.subplots_adjust(left=0.1, right=0.95, bottom=0.1, top=0.90)
 
+        # skip some results and unit x and y size
+        total_num = min(x.size, y.size)
+        x, y = x[0: total_num], y[0: total_num]
+
         # plot
         ax = plt.subplot(111, label="Simpack")
         ax.plot(x, y)
-        ax.set_title(re.split('/', output_name)[-1])
+        ax.set_title(os.path.basename(output_name))
 
         # automatic limit
         x_lim = (np.min(x), np.max(x))
@@ -140,7 +119,7 @@ class PlotSpk(QObject):
 
         # output docx file
         if self.docx_file:
-            self.docx_file.add_fig(output_name + ".png", size, output_name.split("/")[-1])
+            self.docx_file.add_fig(output_name + ".png", size, os.path.basename(output_name))
 
         return
 
@@ -152,14 +131,13 @@ class PlotBladed(QObject):
 
     one_file_finished = pyqtSignal(int)            # finish one file signal
 
-    def __init__(self, var_list_file, filename, output_folder, size, out_docx=None):
+    def __init__(self, var_file, filename, output_folder, size, out_docx=None):
         super(PlotBladed, self).__init__()
 
-        self.var_list_file = var_list_file
+        self.var_file = var_file
         self.filename = filename
         self.output_folder = output_folder
         self.size = size
-
         self.docx_file = out_docx
 
         return
@@ -169,26 +147,30 @@ class PlotBladed(QObject):
         if self.docx_file:
             self.docx_file.add_heading(pf.remove_suffix_of_file(self.filename), 1)
 
-        bladed_res = load_result.BladedResult(self.var_list_file, self.filename)
+        bladed_res = load_result.BladedResult(self.var_file, self.filename)
         bladed_res.one_file_loaded.connect(self.one_file_loaded)
-        bladed_res = bladed_res.get_result()
+        # explicitly load the files
+        bladed_res.load_results()
+
+        order = bladed_res.get_order()
+        res = bladed_res.get_result()
 
         # calculate output file name prefix
         file_prefix = os.path.join(self.output_folder, pf.remove_suffix_of_file(self.filename)) + "_"
 
         # pick out time history first
         time = None
-        for key, val in bladed_res.items():
+        for key, val in res.items():
             if key.lower() == "time":
-                time = bladed_res[key]
+                time = res[key]
                 break
 
         # plot the figures one by one
-        for key, val in bladed_res.items():
-            if key.lower() != "time":
-                self.__plot(time, bladed_res[key], self.size, file_prefix + key)
+        for alias in order:
+            if alias.lower() != "time":
+                self.__plot(time, res[alias], self.size, file_prefix + alias)
 
-                self.one_file_finished.emit(len(bladed_res) - 1)
+                self.one_file_finished.emit(len(order) - 1)
 
         return
 
@@ -243,7 +225,7 @@ class PlotBladed(QObject):
 
         # output docx file
         if self.docx_file:
-            self.docx_file.add_fig(output_name + ".png", size, output_name.split("/")[-1])
+            self.docx_file.add_fig(output_name + ".png", size, os.path.basename(output_name))
 
         return
 
@@ -252,8 +234,8 @@ class PlotBladed(QObject):
 
 
 if __name__ == "__main__":
-    # pthread = PlotSpk("./data/012_results/012_003.txt", "./data/012_results", (8, 4), None)
+    # pthread = PlotSpk("./resources/alias_name_spk.txt", "./data/012_results/012_003.txt", "./data/012_results", (8, 4), None)
     # pthread.run()
 
-    pthread = PlotBladed("./resources/alias_name.txt", "./data/19/powprodWT1-19.$PJ", "./data/19/", (8, 4))
+    pthread = PlotBladed("resources/alias_name_bladed.txt", "./data/19/powprodWT1-19.$PJ", "./data/19/", (8, 4))
     pthread.run()

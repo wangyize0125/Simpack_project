@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QMessageBox, QWidget
 
 class ErrBox(QMessageBox):
     def __init__(self, parent: QWidget, msg):
-        super(MsgBox, self).__init__()
+        super(ErrBox, self).__init__()
 
         self.setFixedSize(parent.width() * 0.8, parent.height() * 0.4)
         self.move((parent.width() - self.width()) // 2, (parent.height() - self.height()) // 2)

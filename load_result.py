@@ -6,7 +6,6 @@
 
 import os
 import re
-import logging
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, QObject
 
@@ -27,133 +26,115 @@ class SpkResult:
     6. Tower bottom forces as function of time (fx, fy, fz, mx, my, mz)
     """
 
-    NUM_PAGE = 15
-    IDX_TIME = 0
-    IDX_PITCH = 1
-    IDX_GENER_SPD = 7
-    IDX_GENER_TRQ = 9
-    IDX_BLADE_FRC = 11
-    IDX_TWR_B_FRC = 23
-    IDX_TWR_T_FRC = 27
-    IDX_BLADE_TRQ = 31
-    IDX_TWR_B_TRQ = 43
-    IDX_TWR_T_TRQ = 47
-    NUM_FIGURE = 35
-
-    def __init__(self, spk_res_file: str):
+    def __init__(self, var_file: str, res_file: str):
         # record the filename
-        self.__spk_res_file = spk_res_file
+        self.__res_file = res_file
 
-        # record the page sets in this file
-        self.__page_sets = None
+        # record the variable file name
+        self.__var_file = var_file
 
-        # time
-        self.time = None
+        # record the alias (key) and real names (value) in a dictionary
+        self.__alias_and_name = dict()
+        self.__alias_order = []
 
-        # pitch angle of each blade
-        self.pitch_blade = [None, None, None]
+        # record the alias (key) and index (value) in a dictionary
+        self.__alias_and_index = dict()
 
-        # generator speed
-        self.generator_speed = None
-
-        # generator torque
-        self.generator_torque = None
-
-        # used for indexing the forces in following arrays
-        self.forces = ["fx", "fy", "fz", "mx", "my", "mz"]
-
-        # blade root forces
-        self.blade_force = [
-            [None, None, None, None, None, None],
-            [None, None, None, None, None, None],
-            [None, None, None, None, None, None]
-        ]
-
-        # tower bottom force
-        self.tower_btm_force = [None, None, None, None, None, None]
-
-        # tower top forces
-        self.tower_top_force = [None, None, None, None, None, None]
+        # record the alias (key) and values (value) in a dictionary
+        self.__alias_and_value = dict()
 
         # load result file
-        self.__load(spk_res_file)
+        self.__load()
 
-    def __load(self, spk_res_file):
-        # check whether the file exists
-        if not os.path.exists(spk_res_file):
-            raise Exception("File: {} does not exist!".format(spk_res_file))
+        return
 
-        # start loading
-        logging.info("Loading spk result file: {}".format(spk_res_file))
+    def __load(self):
+        # sparse alias and name
+        self.__sparse_alias_name()
 
-        file = open(spk_res_file, "r")
-        logging.info("Projection name: {}".format(file.readline().strip().replace("\"", "")))
-        logging.info("Page sets: "); file.readline()
+        # sparse alias and their indices
+        self.__sparse_alias_index()
 
-        # all page sets in this file
-        page_sets = [page_set.replace("\"", "") for page_set in file.readline().split()]
-        # check the number of page sets
-        if len(page_sets) is not self.NUM_PAGE:
-            raise Exception("Number of page sets wrong in this file: {}".format(spk_res_file))
-        else:
-            self.__page_sets = page_sets
-        # display page sets' name for debug
-        for page in range(self.NUM_PAGE):
-            logging.info("\t\t{}. {}".format(page + 1, page_sets[page]))
+        # load result
+        self.__load_results()
 
-        # skip diagram, legend, and unit lines
-        file.readline(); file.readline(); file.readline()
+        return
 
-        # load data
-        data = np.array([[float(var) for var in line.split("\t")] for line in file.readlines()])
+    def __sparse_alias_name(self):
+        file = open(self.__var_file, "r")
 
-        # assign data
-        # time
-        self.time = data[:, self.IDX_TIME]
+        # use total num to record how many lines are read
+        total_num = 0
+        for line in file.readlines():
+            if line[0] == "#":
+                # comment line
+                continue
+            elif line.strip() == "":
+                # empty line
+                continue
+            else:
+                # sparse the names
+                names = [temp.strip() for temp in line.split("@")]
 
-        # pitch angle of the blades
-        for blade_id in range(3):
-            self.pitch_blade[blade_id] = data[:, self.IDX_PITCH + blade_id * 2]
+                if len(names) != 2:
+                    # handle format error
+                    raise Exception("Variable file {}: format wrong!".format(self.__var_file))
+                else:
+                    # use list as the value of the dictionary
+                    self.__alias_and_name[names[0]] = names[1]
+                    # use list to store the order of the aliases
+                    self.__alias_order.append(names[0])
 
-        # generator torque
-        self.generator_torque = data[:, self.IDX_GENER_TRQ]
+                    # successfully add a record
+                    total_num += 1
+        file.close()
 
-        # generator speed
-        self.generator_speed = data[:, self.IDX_GENER_SPD]
+        # if total_num != len(dict), same lines!, which is illegal!
+        if total_num != len(self.__alias_and_name):
+            raise Exception("Same lines in file {}".format(self.__var_file))
 
-        # blade root forces
-        for blade_id in range(3):
-            for force_id in range(3):
-                self.blade_force[blade_id][force_id] = data[:, self.IDX_BLADE_FRC + blade_id * 4 + force_id]
+        # check time is requested
+        time_requested_flag = False
+        for temp_var in self.__alias_and_name.keys():
+            if temp_var.lower() == "time":
+                time_requested_flag = True
+                break
+        if not time_requested_flag:
+            raise Exception("You must include a [Time] variable in {}".format(self.__var_file))
 
-        # tower bottom forces
-        for force_id in range(3):
-            self.tower_btm_force[force_id] = data[:, self.IDX_TWR_B_FRC + force_id]
+        return
 
-        # tower top force
-        for force_id in range(3):
-            self.tower_top_force[force_id] = data[:, self.IDX_TWR_T_FRC + force_id]
+    def __sparse_alias_index(self):
+        file = open(self.__res_file, "r")
+        file.readline()     # skip the first line
+        file.readline()     # skip the second line
+        file.readline()     # skip the third line
+        file.readline()     # skip the fourth line
 
-        # blade root torques
-        for blade_id in range(3):
-            for torque_id in range(3, 6):
-                self.blade_force[blade_id][torque_id] = data[:, self.IDX_BLADE_TRQ + blade_id * 4 + torque_id - 3]
+        # sparse all the variables
+        available_var_list = [item.strip() for item in file.readline().split("\"") if item.strip() != ""]
 
-        # tower bottom forces
-        for torque_id in range(3, 6):
-            self.tower_btm_force[torque_id] = data[:, self.IDX_TWR_B_TRQ + torque_id - 3]
-
-        # tower top force
-        for torque_id in range(3, 6):
-            self.tower_top_force[torque_id] = data[:, self.IDX_TWR_T_TRQ + torque_id - 3]
+        # determine their positions
+        for alias, name in self.__alias_and_name.items():
+            self.__alias_and_index[alias] = int(available_var_list.index(name))
 
         file.close()
 
-    def get_spk_res_file(self):
-        return self.__spk_res_file
+        return
 
-    def get_page_sets(self) -> dict:
-        return self.__page_sets
+    def __load_results(self):
+        temp_data = np.loadtxt(self.__res_file, skiprows=6)
+
+        for alias, index in self.__alias_and_index.items():
+            self.__alias_and_value[alias] = temp_data[:, index]
+
+        return
+
+    def get_order(self) -> list:
+        return self.__alias_order
+
+    def get_result(self) -> dict:
+        return self.__alias_and_value
 
 
 class BladedResult(QObject):
@@ -187,6 +168,7 @@ class BladedResult(QObject):
 
         # use a dictionary to store the variables (value) and the alias of the variables (key)
         self.__alias_and_name = dict()
+        self.__alias_and_order = []
 
         # use a set to store the requested variables
         self.requested_variables = set()
@@ -222,8 +204,7 @@ class BladedResult(QObject):
 
         # sparse axial position of the results
         self.__sparse_alias_pos()
-        print(self.load_file_and_step)
-        print(self.__alias_and_pos)
+
         return
 
     def __sparse_alias_name(self):
@@ -254,6 +235,9 @@ class BladedResult(QObject):
                 else:
                     # use list as the value of the dictionary
                     self.__alias_and_name[names[0]] = [names[1], names[2]]
+
+                    # use a list to store the order of the aliases
+                    self.__alias_and_order.append(names[0])
 
                     # successfully add a record
                     total_num += 1
@@ -423,12 +407,12 @@ class BladedResult(QObject):
         return
 
     def get_result(self) -> dict:
-        # load all the requested variables
-        self.__load_results()
-
         return self.__alias_and_value
 
-    def __load_results(self):
+    def get_order(self) -> list:
+        return self.__alias_and_order
+
+    def load_results(self):
         # loop for each file need to be loaded
         for filename, aliases in self.load_file_and_alias.items():
             t_d = np.loadtxt(filename.replace("%", "$"))
@@ -443,26 +427,6 @@ class BladedResult(QObject):
 
 
 if __name__ == "__main__":
-    # logging.basicConfig(level=logging.INFO)
-    #
-    # spk_res = SpkResult("./data/012_results/012_003.txt")
-    #
-    # print(spk_res.get_spk_res_file())
-    # print(spk_res.get_page_sets())
-    #
-    # print(spk_res.time[0])
-    # print(spk_res.pitch_blade[0][0])
-    # print(spk_res.pitch_blade[1][0])
-    # print(spk_res.pitch_blade[2][0])
-    # print(spk_res.generator_speed[0])
-    # print(spk_res.generator_torque[0])
-    # for i in range(3):
-    #     for j in range(6):
-    #         print(spk_res.blade_force[i][j][0])
-    # for j in range(6):
-    #     print(spk_res.tower_btm_force[j][0])
-    # for j in range(6):
-    #     print(spk_res.tower_top_force[j][0])
+    # spk_res = SpkResult("./resources/alias_name_spk.txt", "./data/012_results/012_003.txt")
 
-    bld_res = BladedResult("resources/alias_name.txt", "./data/19/powprodWT1-19.$PJ")
-
+    bld_res = BladedResult("resources/alias_name_bladed.txt", "./data/19/powprodWT1-19.$PJ")

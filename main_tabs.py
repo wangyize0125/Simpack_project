@@ -13,6 +13,7 @@ from PyQt5 import QtGui
 import public_widgets
 import docx_operation
 from plot_result import PlotSpk, PlotBladed
+import public_functions as pf
 
 
 class MainTab(QTabWidget):
@@ -67,10 +68,14 @@ class SpkResultTab(QWidget):
     finish = pyqtSignal(str)
     start = pyqtSignal()
 
-    filter_file_format = "Text Files (*.txt);;All Files (*)"
+    filter_file_format = "Result Files (*.sbr);;All Files (*)"
+    filter_macro_format = "Macro (*.qs)"
     selected, unselected = ">>", "  "
     d_fig_size_x, d_fig_size_y = 8, 4
     d_word_filename = "Simpack result"
+    d_var_file = "./resources/alias_name_spk.txt"
+    d_macro_file = "./resources/macro.qs"
+    simpack_post_path = "SIMPACK_POST_PATH"
     bar_max = 1E8
 
     def __init__(self, parent=None):
@@ -80,19 +85,17 @@ class SpkResultTab(QWidget):
         self.setFixedSize(parent.width(), parent.height())
         self.move((parent.width() - self.width()) // 2, (parent.height() - self.height()) // 2)
 
-        # output folder where to output the results
+        # variables must be set
+        # output folder
         self.output_folder = None
-
-        # figure size input
-        self.l_fig_size_x, self.l_fig_size_y = QLineEdit(self), QLineEdit(self)
+        # loaded files but not selected files
+        self.file_names = set()
 
         # upgrade progress bar
         self.step_size = 10
 
-        # selected files
-        self.file_names = set()
-
         # widgets
+        self.l_fig_size_x, self.l_fig_size_y = QLineEdit(self), QLineEdit(self)
         self.choose_file_btn = QPushButton(self)
         self.unselect_all_btn = QPushButton(self)
         self.select_all_btn = QPushButton(self)
@@ -104,6 +107,10 @@ class SpkResultTab(QWidget):
         self.choose_out_fld_btn = QPushButton(self)
         self.docx_flag = QCheckBox(self)
         self.l_docx = QLineEdit(self)
+        self.choose_var_file_btn = QPushButton(self)                                # choose variable file button
+        self.l_var_file = QLineEdit(self)                                           # variable file display
+        self.l_macro = QLineEdit(self)                                              # macro file name
+        self.choose_macro_btn = QPushButton(self)                                   # choose macro button
 
         # ui design for this tab
         self.ui_settings()
@@ -111,6 +118,18 @@ class SpkResultTab(QWidget):
         return
 
     def ui_settings(self):
+        # choose variable file button
+        self.choose_var_file_btn.setText("Choose variable file")
+        self.choose_var_file_btn.setFixedSize(self.width() * 0.25, self.choose_var_file_btn.height())
+        self.choose_var_file_btn.move(self.width() * 0.05, self.height() * 0.03)
+        self.choose_var_file_btn.clicked.connect(self.choose_var_file)
+
+        # variable file display
+        self.l_var_file.setFixedSize(self.width() * 0.6, self.l_var_file.height())
+        self.l_var_file.move(self.width() * 0.35, self.height() * 0.03)
+        self.l_var_file.setPlaceholderText("Keep this empty to use the default variable file")
+        self.l_var_file.setFocusPolicy(Qt.NoFocus)
+
         # choose file button
         self.choose_file_btn.setText("Choose files")
         self.choose_file_btn.setFixedSize(self.width() * 0.25, self.choose_file_btn.height())
@@ -127,7 +146,7 @@ class SpkResultTab(QWidget):
         self.file_table.cellClicked.connect(self.cell_clicked)
         self.file_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        btn_pos = 0.5
+        btn_pos = 0.64
         # cancel select all button
         self.unselect_all_btn.setText("Unselect all")
         self.unselect_all_btn.setFixedSize(self.width() * 0.25, self.unselect_all_btn.height())
@@ -155,6 +174,13 @@ class SpkResultTab(QWidget):
         self.calc_btn.move(self.width() * 0.05, self.height() * btn_pos)
         self.calc_btn.clicked.connect(self.plot_result)
         self.calc_btn.setEnabled(False)
+
+        # progress bar
+        btn_pos += 0.05
+        self.bar.setFixedSize(self.width() * 0.25, self.bar.height())
+        self.bar.move(self.width() * 0.05, self.height() * btn_pos)
+        self.bar.setRange(0, self.bar_max)
+        self.bar.setVisible(False)
 
         # choose output folder button
         self.choose_out_fld_btn.setText("Choose output folder")
@@ -186,12 +212,6 @@ class SpkResultTab(QWidget):
         self.l_fig_size_x.setPlaceholderText("Default {}".format(self.d_fig_size_x))
         self.l_fig_size_y.setPlaceholderText("Default {}".format(self.d_fig_size_y))
 
-        # progress bar
-        self.bar.setFixedSize(self.width() * 0.25, self.bar.height())
-        self.bar.move(self.width() * 0.05, self.height() * 0.7)
-        self.bar.setRange(0, self.bar_max)
-        self.bar.setVisible(False)
-
         # docx output check box
         self.docx_flag.move(self.width() * 0.06, self.height() * 0.37)
         self.docx_flag.setCheckState(False)
@@ -205,12 +225,23 @@ class SpkResultTab(QWidget):
         self.l_docx.setFixedSize(self.width() * 0.20, self.l_fig_size_x.height())
         self.l_docx.move(self.width() * 0.09, self.height() * 0.41)
         self.l_docx.setPlaceholderText("Default name: {})".format(self.d_word_filename))
-        self.l_docx.setVisible(False)
+        self.l_docx.setVisible(self.docx_flag.checkState())
+
+        # choose macro file button
+        self.choose_macro_btn.setText("Choose macro")
+        self.choose_macro_btn.setFixedSize(self.width() * 0.25, self.choose_macro_btn.height())
+        self.choose_macro_btn.move(self.width() * 0.05, self.height() * 0.47)
+        self.choose_macro_btn.clicked.connect(self.choose_macro)
+
+        # macro file display
+        self.l_macro.setFixedSize(self.width() * 0.25, self.l_macro.height())
+        self.l_macro.move(self.width() * 0.05, self.height() * 0.53)
+        self.l_macro.setPlaceholderText("Use default macro")
+        self.l_macro.setFocusPolicy(Qt.NoFocus)
 
         return
 
     def choose_files(self):
-        # open files
         files, ok = QFileDialog.getOpenFileNames(self, "Choose files", os.getcwd(), self.filter_file_format)
 
         if not ok:
@@ -219,8 +250,32 @@ class SpkResultTab(QWidget):
             # append the results into the file_names set to remove the same ones
             self.file_names.update(files)
 
+            self.can_release_cal_btn()
+
             # show the files
             self.upgrade_files()
+
+        return
+
+    def choose_var_file(self):
+        # open files
+        var_file, ok = QFileDialog.getOpenFileName(self, "Choose file", os.getcwd(), "Variable file (*.txt)")
+
+        if not ok:
+            pass
+        else:
+            self.l_var_file.setText(var_file)
+
+        return
+
+    def choose_macro(self):
+        # open files
+        macro_file, ok = QFileDialog.getOpenFileName(self, "Choose file", os.getcwd(), self.filter_file_macro)
+
+        if not ok:
+            pass
+        else:
+            self.l_macro.setText(os.path.basename(macro_file))
 
         return
 
@@ -233,17 +288,22 @@ class SpkResultTab(QWidget):
         idx = 0
         for file_name in self.file_names:
             # add the flag into the table
-            flag = QTableWidgetItem(self.unselected)
-            flag.setTextAlignment(Qt.AlignRight)
+            flag = QTableWidgetItem(self.selected)
+            flag.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.file_table.setItem(idx, 0, flag)
 
             # add the filename into the table
-            self.file_table.setItem(idx, 1, QTableWidgetItem(file_name))
+            temp_file = QTableWidgetItem(file_name)
+            temp_file.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.file_table.setItem(idx, 1, temp_file)
 
             idx += 1
 
+        return
+
+    def can_release_cal_btn(self):
         # check whether the calculation button is available
-        if len(self.file_names) > 0 and self.output_folder is not None:
+        if self.file_names and self.output_folder:
             self.calc_btn.setEnabled(True)
         else:
             self.calc_btn.setEnabled(False)
@@ -281,18 +341,25 @@ class SpkResultTab(QWidget):
             if self.file_table.item(i, 0).text() == self.selected:
                 self.file_names.remove(self.file_table.item(i, 1).text())
 
+        self.can_release_cal_btn()
+
         # upgrade the shown table
         self.upgrade_files()
 
         return
 
     def plot_result(self):
+        # if no simpack post path, exit directly
+        if self.simpack_post_path not in os.environ.keys():
+            msg = public_widgets.MsgBox(self, "Lack of {}".format(self.simpack_post_path))
+            # no simpack post path, the following calculation cannot be done
+            return
+
         # plot the result one-by-one
         rows = self.file_table.rowCount()
 
         # check how many cases are selected
-        total_num = 0
-        selected_files = []
+        total_num, selected_files = 0, []
         for i in range(rows):
             if self.file_table.item(i, 0).text() == self.selected:
                 total_num += 1
@@ -308,32 +375,48 @@ class SpkResultTab(QWidget):
             # disable all the buttons on this tab
             self.setEnabled(False)
 
-            # calculate size of the figures
-            x, y = self.l_fig_size_x.text(), self.l_fig_size_y.text()
-            x = self.d_fig_size_x if x == "" else float(x)
-            y = self.d_fig_size_y if y == "" else float(y)
-
-            # check whether output word result
-            if self.docx_flag.checkState():
-                word_file_name = self.l_docx.text()
-                if word_file_name == "":
-                    docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, self.d_word_filename))
-                else:
-                    docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
-            else:
-                docx_file = None
-
             # enable progress bar
             self.bar.setVisible(True)
             # set zero of the progress bar
             self.bar.setValue(0)
 
-            self.step_size = self.bar_max / total_num
+            self.step_size = self.bar_max / total_num / 2
+
+            # pre process for post process
+            macro_file = self.d_macro_file if self.l_macro.text() == "" else self.l_macro.text()
+            for idx, temp_filename in enumerate(selected_files):
+                ok = os.system("{} {} {} {}".format(
+                    os.environ[self.simpack_post_path],     # simpack post software
+                    macro_file,                             # macro filename
+                    temp_filename,                          # result file
+                    os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")  # output file
+                ))
+
+                if ok != 0:
+                    err_box = public_widgets.ErrBox(self, "Spk Post {} Error".format(temp_filename))
+                    selected_files.remove(temp_filename)
+                else:
+                    # update bar
+                    self.upgrade_bar(1)
+                    # change the filename in selected file list
+                    selected_files[idx] = os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")
+
+            # prepare input data for the calculation function
+            var_file = self.d_var_file if self.l_var_file.text() == "" else self.l_var_file.text()
+            # calculate size of the figures
+            x, y = self.l_fig_size_x.text(), self.l_fig_size_y.text()
+            x = self.d_fig_size_x if x == "" else float(x)
+            y = self.d_fig_size_y if y == "" else float(y)
+            # check whether output word result
+            if self.docx_flag.checkState():
+                word_file_name = self.d_word_filename if self.l_docx.text() == "" else self.l_docx.text()
+                docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
+            else:
+                docx_file = None
 
             for filename in selected_files:
                 try:
-                    pthread = PlotSpk(filename, self.output_folder, [x, y], docx_file)
-
+                    pthread = PlotSpk(var_file, filename, self.output_folder, [x, y], docx_file)
                     pthread.one_file_finished.connect(self.upgrade_bar)
                     pthread.run()
                 except Exception as exc:
@@ -362,25 +445,15 @@ class SpkResultTab(QWidget):
         # open folder
         self.output_folder = QFileDialog.getExistingDirectory(self, "Choose Output Folder", os.getcwd())
 
-        # display folder
-        self.upgrade_folder()
-
-        return
-
-    def upgrade_folder(self):
         self.l_output_folder.setText(self.output_folder)
 
-        # check whether the calculation button is available
-        if len(self.file_names) > 0 and self.output_folder is not None:
-            self.calc_btn.setEnabled(True)
-        else:
-            self.calc_btn.setEnabled(False)
+        self.can_release_cal_btn()
 
         return
 
     def docx_flap_changed(self):
         # change the line edit's state
-        self.l_docx.setVisible(not self.l_docx.isVisible())
+        self.l_docx.setVisible(self.docx_flag.checkState())
 
         return
 
@@ -399,6 +472,7 @@ class BladedResultTab(QWidget):
     selected, unselected = ">>", "  "
     d_fig_size_x, d_fig_size_y = 8, 4
     d_word_filename = "GH-Bladed result"
+    d_var_file = "./resources/alias_name_bladed.txt"
     bar_max = 1E8
 
     def __init__(self, parent=None):
@@ -409,33 +483,29 @@ class BladedResultTab(QWidget):
         self.setFixedSize(parent.width(), parent.height())
         self.move((parent.width() - self.width()) // 2, (parent.height() - self.height()) // 2)
 
-        # variable file
-        self.var_file = None
-
         # output folder where to output the results
         self.output_folder = None
+        # loaded files but not selected files
+        self.file_names = set()
 
         # upgrade progress bar default step size
         self.step_size = 10
 
-        # loaded files but not selected files
-        self.file_names = set()
-
         # widgets
         self.l_fig_size_x, self.l_fig_size_y = QLineEdit(self), QLineEdit(self)     # figure size input
+        self.l_output_folder = QLineEdit(self)                                      # output folder display
+        self.l_docx_file = QLineEdit(self)                                          # word filename input
+        self.l_var_file = QLineEdit(self)                                           # variable file display
         self.choose_file_btn = QPushButton(self)                                    # choose result files
         self.unselect_all_btn = QPushButton(self)                                   # unselect all the files
         self.select_all_btn = QPushButton(self)                                     # select all the files
         self.delete_btn = QPushButton(self)                                         # delete the selected files
-        self.file_table = QTableWidget(self)                                        # table shows the filenames
-        self.l_output_folder = QLineEdit(self)                                      # output folder display
         self.calc_btn = QPushButton(self)                                           # start calculation button
-        self.bar = QProgressBar(self)                                               # progress bar
         self.choose_out_fld_btn = QPushButton(self)                                 # choose output folder button
-        self.docx_flag = QCheckBox(self)                                            # whether output word file
-        self.l_docx = QLineEdit(self)                                               # word filename input
         self.choose_var_file_btn = QPushButton(self)                                # choose variable file button
-        self.l_var_file = QLineEdit(self)                                           # variable file display
+        self.file_table = QTableWidget(self)                                        # table shows the filenames
+        self.bar = QProgressBar(self)                                               # progress bar
+        self.docx_flag = QCheckBox(self)                                            # whether output word file
 
         # ui design for this tab
         self.ui_settings()
@@ -452,6 +522,7 @@ class BladedResultTab(QWidget):
         # variable file display
         self.l_var_file.setFixedSize(self.width() * 0.6, self.l_var_file.height())
         self.l_var_file.move(self.width() * 0.35, self.height() * 0.03)
+        self.l_var_file.setPlaceholderText("Keep this empty to use the default variable file")
         self.l_var_file.setFocusPolicy(Qt.NoFocus)
 
         # choose file button
@@ -545,28 +616,26 @@ class BladedResultTab(QWidget):
         docx_label.move(self.width() * 0.09, self.height() * 0.358)
 
         # docx name line edit
-        self.l_docx.setFixedSize(self.width() * 0.20, self.l_fig_size_x.height())
-        self.l_docx.move(self.width() * 0.09, self.height() * 0.41)
-        self.l_docx.setPlaceholderText("Default name: {})".format(self.d_word_filename))
-        self.l_docx.setVisible(False)
+        self.l_docx_file.setFixedSize(self.width() * 0.20, self.l_fig_size_x.height())
+        self.l_docx_file.move(self.width() * 0.09, self.height() * 0.41)
+        self.l_docx_file.setPlaceholderText("Default name: {})".format(self.d_word_filename))
+        self.l_docx_file.setVisible(self.docx_flag.checkState())
 
         return
 
     def choose_var_file(self):
         # open files
-        self.var_file, ok = QFileDialog.getOpenFileName(self, "Choose file", os.getcwd(), "Variable file (*.txt)")
+        var_file, ok = QFileDialog.getOpenFileName(self, "Choose file", os.getcwd(), "Variable file (*.txt)")
 
         if not ok:
             pass
         else:
-            self.l_var_file.setText(self.var_file)
-
-            self.can_release_cal_btn()
+            self.l_var_file.setText(var_file)
 
         return
 
-    def can_release_cal_btn(self) -> bool:
-        if len(self.file_names) > 0 and self.output_folder is not None and self.var_file is not None:
+    def can_release_cal_btn(self):
+        if self.output_folder and self.file_names:
             self.calc_btn.setEnabled(True)
         else:
             self.calc_btn.setEnabled(False)
@@ -583,6 +652,8 @@ class BladedResultTab(QWidget):
             # append the results into the file_names set to remove the same ones
             self.file_names.update(files)
 
+            self.can_release_cal_btn()
+
             # show the files
             self.upgrade_files()
 
@@ -597,17 +668,16 @@ class BladedResultTab(QWidget):
         idx = 0
         for file_name in self.file_names:
             # add the flag into the table
-            flag = QTableWidgetItem(self.unselected)
-            flag.setTextAlignment(Qt.AlignRight)
+            flag = QTableWidgetItem(self.selected)
+            flag.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.file_table.setItem(idx, 0, flag)
 
             # add the filename into the table
-            self.file_table.setItem(idx, 1, QTableWidgetItem(file_name))
+            temp_file = QTableWidgetItem(file_name)
+            temp_file.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.file_table.setItem(idx, 1, temp_file)
 
             idx += 1
-
-        # check whether the button can be released?
-        self.can_release_cal_btn()
 
         return
 
@@ -642,6 +712,8 @@ class BladedResultTab(QWidget):
             if self.file_table.item(i, 0).text() == self.selected:
                 self.file_names.remove(self.file_table.item(i, 1).text())
 
+        self.can_release_cal_btn()
+
         # upgrade the shown table
         self.upgrade_files()
 
@@ -663,26 +735,11 @@ class BladedResultTab(QWidget):
             # nothing to do
             msg_box = public_widgets.MsgBox(self, "No file selected!")
         else:
-            # start calculation
+            # start calculation trigger the start signal
             self.start.emit()
 
             # disable all the buttons on this tab
             self.setEnabled(False)
-
-            # calculate size of the figures
-            x, y = self.l_fig_size_x.text(), self.l_fig_size_y.text()
-            x = self.d_fig_size_x if x == "" else float(x)
-            y = self.d_fig_size_y if y == "" else float(y)
-
-            # check whether output word result
-            if self.docx_flag.checkState():
-                word_file_name = self.l_docx.text()
-                if word_file_name == "":
-                    docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, self.d_word_filename))
-                else:
-                    docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
-            else:
-                docx_file = None
 
             # enable progress bar
             self.bar.setVisible(True)
@@ -691,23 +748,37 @@ class BladedResultTab(QWidget):
 
             self.step_size = self.bar_max / (total_num + 1)
 
+            # var_file
+            var_file = self.d_var_file if self.l_var_file.text() == "" else self.l_var_file.text()
+
+            # figure size
+            x, y = self.l_fig_size_x.text(), self.l_fig_size_y.text()
+            x = self.d_fig_size_x if x == "" else float(x)
+            y = self.d_fig_size_y if y == "" else float(y)
+
+            # docx_file
+            if self.docx_flag.checkState():
+                word_file_name = self.d_word_filename if self.l_docx_file.text() == "" else self.l_docx_file.text()
+                docx_file = docx_operation.DocxFile(os.path.join(self.output_folder, word_file_name))
+            else:
+                docx_file = None
+
             for filename in selected_files:
                 try:
-                    pthread = PlotBladed(self.var_file, filename, self.output_folder, [x, y], docx_file)
-
+                    pthread = PlotBladed(var_file, filename, self.output_folder, [x, y], docx_file)
                     pthread.one_file_finished.connect(self.upgrade_bar)
                     pthread.run()
                 except Exception as exc:
                     err_box = public_widgets.ErrBox(self, str(exc))
-
-            # trigger finish signal for parent widget
-            self.finish.emit(self.name)
 
             # disable progress bar
             self.bar.setVisible(False)
 
             # enable all buttons on this tab
             self.setEnabled(True)
+
+            # trigger finish signal for parent widget
+            self.finish.emit(self.name)
 
         return
 
@@ -723,12 +794,6 @@ class BladedResultTab(QWidget):
         # open folder
         self.output_folder = QFileDialog.getExistingDirectory(self, "Choose Output Folder", os.getcwd())
 
-        # display folder
-        self.upgrade_folder()
-
-        return
-
-    def upgrade_folder(self):
         self.l_output_folder.setText(self.output_folder)
 
         self.can_release_cal_btn()
@@ -737,6 +802,6 @@ class BladedResultTab(QWidget):
 
     def docx_flap_changed(self):
         # change the line edit's state
-        self.l_docx.setVisible(not self.l_docx.isVisible())
+        self.l_docx_file.setVisible(self.docx_flag.checkState())
 
         return

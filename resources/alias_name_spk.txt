@@ -1,0 +1,48 @@
+# you need to specify the alias name and real name in Simpack Post of the variables you want to read
+# ! And you must include a Time alias name here so that the program can plot the figures
+# left column is the alias name
+# right column is the real variable name in Simpack Post, which must be as same as that one in the Simpack Post
+# @ is used to split the alias name and real name
+
+Time@ time
+
+Rotor_speed@ force output.$C_GeneratorSpeedSensor. Ch 1: C * State + u
+Pitch_blade_1@ force output.$C_AppliedPitchAngleBlade1.y1: Output 1
+Pitch_blade_2@ force output.$C_AppliedPitchAngleBlade2.y1: Output 1
+Pitch_blade_3@ force output.$C_AppliedPitchAngleBlade3.y1: Output 1
+Generator_torque@ force output.$C_DemandGenTorque.Output Value
+
+Blade_1_fx@ joint force.$S_Blade1.$J_RBL.x
+Blade_1_fy@ joint force.$S_Blade1.$J_RBL.y
+Blade_1_fz@ joint force.$S_Blade1.$J_RBL.z
+Blade_1_mx@ joint torque.$S_Blade1.$J_RBL.x
+Blade_1_my@ joint torque.$S_Blade1.$J_RBL.y
+Blade_1_mz@ joint torque.$S_Blade1.$J_RBL.z
+
+Blade_2_fx@ joint force.$S_Blade2.$J_RBL.x
+Blade_2_fy@ joint force.$S_Blade2.$J_RBL.y
+Blade_2_fz@ joint force.$S_Blade2.$J_RBL.z
+Blade_2_mx@ joint torque.$S_Blade2.$J_RBL.x
+Blade_2_my@ joint torque.$S_Blade2.$J_RBL.y
+Blade_2_mz@ joint torque.$S_Blade2.$J_RBL.z
+
+Blade_3_fx@ joint force.$S_Blade3.$J_RBL.x
+Blade_3_fy@ joint force.$S_Blade3.$J_RBL.y
+Blade_3_fz@ joint force.$S_Blade3.$J_RBL.z
+Blade_3_mx@ joint torque.$S_Blade3.$J_RBL.x
+Blade_3_my@ joint torque.$S_Blade3.$J_RBL.y
+Blade_3_mz@ joint torque.$S_Blade3.$J_RBL.z
+
+Tower_bottom_fx@ joint force.$S_TWR.$J_TWR.x
+Tower_bottom_fy@ joint force.$S_TWR.$J_TWR.y
+Tower_bottom_fz@ joint force.$S_TWR.$J_TWR.z
+Tower_bottom_mx@ joint torque.$S_TWR.$J_TWR.x
+Tower_bottom_my@ joint torque.$S_TWR.$J_TWR.y
+Tower_bottom_mz@ joint torque.$S_TWR.$J_TWR.z
+
+Tower_top_fx@ joint force.$S_YBR.$J_YBR.x
+Tower_top_fy@ joint force.$S_YBR.$J_YBR.y
+Tower_top_fz@ joint force.$S_YBR.$J_YBR.z
+Tower_top_mx@ joint torque.$S_YBR.$J_YBR.x
+Tower_top_my@ joint torque.$S_YBR.$J_YBR.y
+Tower_top_mz@ joint torque.$S_YBR.$J_YBR.z
