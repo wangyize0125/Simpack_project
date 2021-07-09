@@ -394,7 +394,7 @@ class SpkResultTab(QWidget):
             main_file = open(self.d_main_macro_file, "r")
             for line in main_file.readlines():
                 if "{{ macro_name }}" in line:
-                    line.replace("{{ macro_name }}", pf.remove_suffix_of_file(macro_filename))
+                    line = line.replace("{{ macro_name }}", pf.remove_suffix_of_file(macro_filename))
                 macro_file.write(line)
             main_file.close()
             macro_file_without_main = open(macro_filename, "r")
