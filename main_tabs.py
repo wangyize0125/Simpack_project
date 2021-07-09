@@ -411,7 +411,7 @@ class SpkResultTab(QWidget):
                     macro_filename,                         # macro filename
                     temp_filename,                          # result file
                     os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")  # output file
-                ))
+                ).replace("/", "\\"))
 
                 # update bar
                 self.upgrade_bar(1)
