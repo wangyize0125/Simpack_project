@@ -5,6 +5,7 @@
 # @Software: PyCharm
 
 import os
+import subprocess
 from PyQt5.QtWidgets import QWidget, QTabWidget, QPushButton, QAbstractItemView, QLabel, QProgressBar
 from PyQt5.QtWidgets import QFileDialog, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox
 from PyQt5.QtCore import Qt, pyqtSignal
@@ -406,12 +407,13 @@ class SpkResultTab(QWidget):
             macro_filename = os.path.join(self.output_folder, "{}_with_main.qs".format(pf.remove_suffix_of_file(macro_filename)))
             # run macro for each file
             for idx, temp_filename in enumerate(selected_files):
-                ok = os.system("\"{}\" -s \"{}\" \"{}\"?\"{}\"".format(
-                    os.environ[self.simpack_post_path],     # simpack post software
-                    macro_filename,                         # macro filename
-                    temp_filename,                          # result file
-                    os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")  # output file
-                ).replace("/", "\\"))
+                sub_ps = subprocess.Popen([
+                    "\"{}\"".format(os.environ[self.simpack_post_path]).replace("/", "\\"),
+                    "-s",
+                    "\"{}\"".format(macro_filename).replace("/", "\\"),
+                    "\"{}\"?\"{}\"".format(temp_filename, os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")).replace("/", "\\")
+                ])
+                ok = sub_ps.wait()
 
                 # update bar
                 self.upgrade_bar(1)
