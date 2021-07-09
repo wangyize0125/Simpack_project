@@ -62,8 +62,8 @@ if __name__ == "__main__":
     # initialize an application instance
     app = QApplication(sys.argv)
 
-    if os.path.isfile("./debug"):
-        os.environ["SIMPACK_POST_PATH"] = "./debug"
+    if os.path.isfile("debug_wangyize_1998"):
+        os.environ["SIMPACK_POST_PATH"] = "./debug_wangyize_1998"
 
     app_gui = SpkProj(app_constants)
     app_gui.show()

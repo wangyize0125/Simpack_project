@@ -71,11 +71,13 @@ class SpkResultTab(QWidget):
     filter_file_format = "Result Files (*.sbr);;All Files (*)"
     filter_macro_format = "Macro (*.qs)"
     selected, unselected = ">>", "  "
+    success, fail = "Suc.", "Fai."
     d_fig_size_x, d_fig_size_y = 8, 4
     d_word_filename = "Simpack result"
     d_var_file = "./resources/alias_name_spk.txt"
     d_macro_file = "./resources/macro.qs"
     simpack_post_path = "SIMPACK_POST_PATH"
+    d_main_macro_file = "./resources/main.qs"
     bar_max = 1E8
 
     def __init__(self, parent=None):
@@ -224,7 +226,7 @@ class SpkResultTab(QWidget):
         # docx name line edit
         self.l_docx.setFixedSize(self.width() * 0.20, self.l_fig_size_x.height())
         self.l_docx.move(self.width() * 0.09, self.height() * 0.41)
-        self.l_docx.setPlaceholderText("Default name: {})".format(self.d_word_filename))
+        self.l_docx.setPlaceholderText("Default name: {}".format(self.d_word_filename))
         self.l_docx.setVisible(self.docx_flag.checkState())
 
         # choose macro file button
@@ -351,7 +353,7 @@ class SpkResultTab(QWidget):
     def plot_result(self):
         # if no simpack post path, exit directly
         if self.simpack_post_path not in os.environ.keys():
-            msg = public_widgets.MsgBox(self, "Lack of {}".format(self.simpack_post_path))
+            msg = public_widgets.MsgBox(self, "Lack of {} environment path".format(self.simpack_post_path))
             # no simpack post path, the following calculation cannot be done
             return
 
@@ -364,6 +366,9 @@ class SpkResultTab(QWidget):
             if self.file_table.item(i, 0).text() == self.selected:
                 total_num += 1
                 selected_files.append(self.file_table.item(i, 1).text())
+
+        # success flag for all the selected files
+        success_flag = {selected_file_name: True for selected_file_name in selected_files}
 
         if total_num == 0:
             # nothing to do
@@ -383,21 +388,44 @@ class SpkResultTab(QWidget):
             self.step_size = self.bar_max / total_num / 2
 
             # pre process for post process
-            macro_file = self.d_macro_file if self.l_macro.text() == "" else self.l_macro.text()
+            macro_filename = self.d_macro_file if self.l_macro.text() == "" else self.l_macro.text()
+            # generate the macro file with main function
+            macro_file = open(os.path.join(self.output_folder, "{}_with_main.qs".format(pf.remove_suffix_of_file(macro_filename))), "w")
+            main_file = open(self.d_main_macro_file, "r")
+            for line in main_file.readlines():
+                if "{{ macro_name }}" in line:
+                    line.replace("{{ macro_name }}", pf.remove_suffix_of_file(macro_filename))
+                macro_file.write(line)
+            main_file.close()
+            macro_file_without_main = open(macro_filename, "r")
+            for line in macro_file_without_main.readlines():
+                macro_file.write(line)
+            macro_file_without_main.close()
+            macro_file.close()
+            # change macro_filename to the new one
+            macro_filename = os.path.join(self.output_folder, "{}_with_main.qs".format(pf.remove_suffix_of_file(macro_filename)))
+            # run macro for each file
             for idx, temp_filename in enumerate(selected_files):
-                ok = os.system("{} {} {} {}".format(
+                ok = os.system("\"{}\" -s \"{}\" \"{}\"?\"{}\"".format(
                     os.environ[self.simpack_post_path],     # simpack post software
-                    macro_file,                             # macro filename
+                    macro_filename,                         # macro filename
                     temp_filename,                          # result file
                     os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")  # output file
                 ))
 
+                # update bar
+                self.upgrade_bar(1)
+
+                if os.path.isfile("debug_wangyize_1998"):
+                    ok = 0
+
                 if ok != 0:
                     err_box = public_widgets.ErrBox(self, "Spk Post {} Error".format(temp_filename))
                     selected_files.remove(temp_filename)
+
+                    # record flag
+                    success_flag[temp_filename] = False
                 else:
-                    # update bar
-                    self.upgrade_bar(1)
                     # change the filename in selected file list
                     selected_files[idx] = os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")
 
@@ -422,6 +450,12 @@ class SpkResultTab(QWidget):
                 except Exception as exc:
                     err_box = public_widgets.ErrBox(self, str(exc))
 
+                    # record flag
+                    success_flag[filename] = False
+
+            # show the flags
+            self.show_success_flag(success_flag)
+
             # trigger finish signal for parent widget
             self.finish.emit(self.name)
 
@@ -430,6 +464,17 @@ class SpkResultTab(QWidget):
 
             # enable all buttons on this tab
             self.setEnabled(True)
+
+        return
+
+    def show_success_flag(self, flags: dict):
+        rows = self.file_table.rowCount()
+
+        for i in range(rows):
+            if self.file_table.item(i, 1).text() in flags.keys():
+                success_flag = QTableWidgetItem(self.success if flags[self.file_table.item(i, 1).text()] else self.fail)
+                success_flag.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.file_table.setItem(i, 0, success_flag)
 
         return
 
@@ -470,6 +515,7 @@ class BladedResultTab(QWidget):
 
     filter_file_format = "Bladed Project (*.$PJ);;All Files (*)"
     selected, unselected = ">>", "  "
+    success, fail = "Suc.", "Fai."
     d_fig_size_x, d_fig_size_y = 8, 4
     d_word_filename = "GH-Bladed result"
     d_var_file = "./resources/alias_name_bladed.txt"
@@ -618,7 +664,7 @@ class BladedResultTab(QWidget):
         # docx name line edit
         self.l_docx_file.setFixedSize(self.width() * 0.20, self.l_fig_size_x.height())
         self.l_docx_file.move(self.width() * 0.09, self.height() * 0.41)
-        self.l_docx_file.setPlaceholderText("Default name: {})".format(self.d_word_filename))
+        self.l_docx_file.setPlaceholderText("Default name: {}".format(self.d_word_filename))
         self.l_docx_file.setVisible(self.docx_flag.checkState())
 
         return
@@ -731,6 +777,9 @@ class BladedResultTab(QWidget):
                 total_num += 1
                 selected_files.append(self.file_table.item(i, 1).text())
 
+        # success flag for all the selected files
+        success_flag = {selected_file_name: True for selected_file_name in selected_files}
+
         if total_num == 0:
             # nothing to do
             msg_box = public_widgets.MsgBox(self, "No file selected!")
@@ -771,6 +820,12 @@ class BladedResultTab(QWidget):
                 except Exception as exc:
                     err_box = public_widgets.ErrBox(self, str(exc))
 
+                    # record the flag
+                    success_flag[filename] = False
+
+            # show the flags
+            self.show_success_flag(success_flag)
+
             # disable progress bar
             self.bar.setVisible(False)
 
@@ -779,6 +834,17 @@ class BladedResultTab(QWidget):
 
             # trigger finish signal for parent widget
             self.finish.emit(self.name)
+
+        return
+
+    def show_success_flag(self, flags: dict):
+        rows = self.file_table.rowCount()
+
+        for i in range(rows):
+            if self.file_table.item(i, 1).text() in flags.keys():
+                success_flag = QTableWidgetItem(self.success if flags[self.file_table.item(i, 1).text()] else self.fail)
+                success_flag.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.file_table.setItem(i, 0, success_flag)
 
         return
 
