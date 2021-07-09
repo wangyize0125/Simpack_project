@@ -407,13 +407,26 @@ class SpkResultTab(QWidget):
             macro_filename = os.path.join(self.output_folder, "{}_with_main.qs".format(pf.remove_suffix_of_file(macro_filename)))
             # run macro for each file
             for idx, temp_filename in enumerate(selected_files):
-                sub_ps = subprocess.Popen([
-                    "\"{}\"".format(os.environ[self.simpack_post_path]).replace("/", "\\"),
-                    "-s",
-                    "\"{}\"".format(macro_filename).replace("/", "\\"),
-                    "\"{}\"?\"{}\"".format(temp_filename, os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")).replace("/", "\\")
-                ])
-                ok = sub_ps.wait()
+                try:
+                    sub_ps = subprocess.Popen([
+                        "{}".format(os.environ[self.simpack_post_path]).replace("/", "\\"),         # simpack post path
+                        "-s",
+                        "{}".format(macro_filename).replace("/", "\\"),                             # macro file
+                        "{}?{}".format(
+                            temp_filename,                                                          # simpack res file
+                            os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")  # output
+                        ).replace("/", "\\")
+                    ])
+                    ok = sub_ps.wait()
+                except Exception as exc:
+                    # task failed
+                    ok = 1
+
+                    err_box = public_widgets.ErrBox(self, "Spk Post {} Error".format(temp_filename))
+                    selected_files.remove(temp_filename)
+
+                    # record flag
+                    success_flag[temp_filename] = False
 
                 # update bar
                 self.upgrade_bar(1)
