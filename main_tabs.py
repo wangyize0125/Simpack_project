@@ -375,7 +375,7 @@ class SpkResultTab(QWidget):
                 selected_files.append(self.file_table.item(i, 1).text())
 
         # success flag for all the selected files
-        success_flag = {selected_file_name: True for selected_file_name in selected_files}
+        success_flag = [True for i in range(rows)]
 
         if total_num == 0:
             # nothing to do
@@ -411,7 +411,9 @@ class SpkResultTab(QWidget):
             macro_file.close()
             # change macro_filename to the new one
             macro_filename = os.path.join(self.output_folder, "{}_with_main.qs".format(pf.remove_suffix_of_file(macro_filename)))
+
             # run macro for each file
+            posted_files = []
             for idx, temp_filename in enumerate(selected_files):
                 try:
                     sub_ps = subprocess.Popen([
@@ -420,7 +422,7 @@ class SpkResultTab(QWidget):
                         "{}".format(macro_filename).replace("/", "\\"),                             # macro file
                         "{}?{}".format(
                             temp_filename,                                                          # simpack res file
-                            os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")  # output
+                            os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + "_{}.txt".format(idx))
                         ).replace("/", "\\")
                     ])
                     ok = sub_ps.wait()
@@ -436,13 +438,15 @@ class SpkResultTab(QWidget):
 
                 if ok != 0:
                     err_box = public_widgets.ErrBox(self, "Spk Post {} Error".format(temp_filename))
-                    selected_files.remove(temp_filename)
+                    posted_files.append("")
 
                     # record flag
-                    success_flag[temp_filename] = False
+                    success_flag[idx] = False
                 else:
                     # change the filename in selected file list
-                    selected_files[idx] = os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")
+                    posted_files.append(os.path.join(
+                        self.output_folder,
+                        (pf.remove_suffix_of_file(temp_filename) + "_{}.txt".format(idx))))
 
             # prepare input data for the calculation function
             var_file = self.d_var_file if self.l_var_file.text() == "" else self.l_var_file.text()
@@ -457,16 +461,17 @@ class SpkResultTab(QWidget):
             else:
                 docx_file = None
 
-            for filename in selected_files:
+            for idx, filename in enumerate(posted_files):
                 try:
-                    pthread = PlotSpk(var_file, filename, self.output_folder, [x, y], docx_file)
-                    pthread.one_file_finished.connect(self.upgrade_bar)
-                    pthread.run()
+                    if filename:
+                        pthread = PlotSpk(var_file, filename, self.output_folder, [x, y], docx_file)
+                        pthread.one_file_finished.connect(self.upgrade_bar)
+                        pthread.run()
                 except Exception as exc:
                     err_box = public_widgets.ErrBox(self, str(exc))
 
                     # record flag
-                    success_flag[filename] = False
+                    success_flag[idx] = False
 
             # show the flags
             self.show_success_flag(success_flag)
@@ -482,12 +487,12 @@ class SpkResultTab(QWidget):
 
         return
 
-    def show_success_flag(self, flags: dict):
+    def show_success_flag(self, flags: list):
         rows = self.file_table.rowCount()
 
         for i in range(rows):
-            if self.file_table.item(i, 1).text() in flags.keys():
-                success_flag = QTableWidgetItem(self.success if flags[self.file_table.item(i, 1).text()] else self.fail)
+            if self.file_table.item(i, 0).text() == self.selected:
+                success_flag = QTableWidgetItem(self.success if flags[i] else self.fail)
                 success_flag.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.file_table.setItem(i, 0, success_flag)
 
@@ -1417,6 +1422,7 @@ class SpkBladedResultTab(QWidget):
                 )
 
                 # run macro for each simpack file
+                posted_spk_files = []
                 for idx, temp_filename in enumerate(selected_spck):
                     try:
                         sub_ps = subprocess.Popen([
@@ -1425,8 +1431,10 @@ class SpkBladedResultTab(QWidget):
                             "{}".format(macro_filename).replace("/", "\\"),  # macro file
                             "{}?{}".format(
                                 temp_filename,  # simpack res file
-                                os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + ".txt")
-                            ).replace("/", "\\")
+                                os.path.join(
+                                    self.output_folder,
+                                    (pf.remove_suffix_of_file(temp_filename) + "_{}.txt").format(idx)
+                                ).replace("/", "\\"))
                         ])
                         # wait until it finished
                         ok = sub_ps.wait()
@@ -1442,17 +1450,15 @@ class SpkBladedResultTab(QWidget):
 
                     if ok != 0:
                         err_box = public_widgets.ErrBox(self, "Spk Post {} Error".format(temp_filename))
-                        selected_spck.remove(temp_filename)
-                        selected_bladed.remove(selected_bladed[idx])
-                        total_num -= 1
+                        posted_spk_files.append("")
                         # record flag
                         success_flag[idx] = False
                     else:
                         # change the filename in selected file list
-                        selected_spck[idx] = os.path.join(
+                        posted_spk_files.append(os.path.join(
                             self.output_folder,
-                            pf.remove_suffix_of_file(temp_filename) + ".txt"
-                        )
+                            (pf.remove_suffix_of_file(temp_filename) + "_{}.txt").format(idx)
+                        ).replace("/", "\\"))
 
                 # prepare input data for the calculation function
                 vf_spck = self.d_var_file_spk if self.l_spck_var_file.text() == "" else self.l_spck_var_file.text()
@@ -1473,17 +1479,18 @@ class SpkBladedResultTab(QWidget):
                 # simpack one by one
                 for file_spck, file_bladed in zip(selected_spck, selected_bladed):
                     try:
-                        pthread = PlotSpkBladed(
-                            vf_spck, file_spck, vf_bld, file_bladed, scale_file,
-                            self.output_folder, [x, y], docx_file
-                        )
-                        pthread.one_file_finished.connect(self.upgrade_bar)
-                        pthread.run()
+                        if file_spck:
+                            pthread = PlotSpkBladed(
+                                vf_spck, file_spck, vf_bld, file_bladed, scale_file,
+                                self.output_folder, [x, y], docx_file
+                            )
+                            pthread.one_file_finished.connect(self.upgrade_bar)
+                            pthread.run()
                     except Exception as exc:
                         err_box = public_widgets.ErrBox(self, str(exc))
 
                         # record flag
-                        success_flag[selected_spck.index(file_spck)] = False
+                        success_flag[posted_spk_files.index(file_spck)] = False
 
                 # show the flags
                 self.show_success_flag(success_flag)

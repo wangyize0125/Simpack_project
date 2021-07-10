@@ -427,6 +427,6 @@ class BladedResult(QObject):
 
 
 if __name__ == "__main__":
-    # spk_res = SpkResult("./resources/alias_name_spk.txt", "./data/012_results/012_003.txt")
+    # spk_res = SpkResult("./resources/alias_name_spk.txt", "./data/012_results/012_003_0.txt")
 
     bld_res = BladedResult("resources/alias_name_bladed.txt", "./data/19/powprodWT1-19.$PJ")

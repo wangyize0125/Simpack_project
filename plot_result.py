@@ -422,13 +422,13 @@ class PlotSpkBladed(QObject):
 
 
 if __name__ == "__main__":
-    # pthread = PlotSpk("./resources/alias_name_spk.txt", "./data/012_results/012_003.txt", "./data/012_results", (8, 4), None)
+    # pthread = PlotSpk("./resources/alias_name_spk.txt", "./data/012_results/012_003_0.txt", "./data/012_results", (8, 4), None)
     # pthread.run()
 
     # pthread = PlotBladed("resources/alias_name_bladed.txt", "./data/19/powprodWT1-19.$PJ", "./data/19/", (8, 4))
     # pthread.run()
 
-    pthread = PlotSpkBladed("./resources/alias_name_spk.txt", "./data/012_results/012_019.txt",
+    pthread = PlotSpkBladed("./resources/alias_name_spk.txt", "data/012_results/012_019_2.txt",
                             "./resources/alias_name_bladed.txt", "./data/19/powprodWT1-19.$PJ",
                             "./resources/scale_factors_spk.txt", "./data/", [8, 4],
                             docx_operation.DocxFile("./data/Spck_bladed"))
