@@ -307,7 +307,7 @@ class PlotSpkBladed(QObject):
                 raise Exception("Aliases in Simpack and GH-Bladed variable files are not the same!")
 
         # calculate output file name prefix
-        file_prefix = os.path.join(self.output_folder, "SPCK-{} @ BLADED-{}: ".format(
+        file_prefix = os.path.join(self.output_folder, "SPCK_{}@_BLADED_{}_".format(
             pf.remove_suffix_of_file(self.file_spk),            # spck filename
             pf.remove_suffix_of_file(self.file_bladed)          # bladed filename
         ))
