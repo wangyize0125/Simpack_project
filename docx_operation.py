@@ -21,6 +21,7 @@ class DocxFile:
     # maximum size of the figures
     fig_x_max = 14
     fig_cap_size = 10
+    table_size = 10
     heading_sizes = [14, 14, 12]
 
     def __init__(self, filename):
@@ -37,6 +38,12 @@ class DocxFile:
         self.fig_caption.font.name = "Times New Roman"
         self.fig_caption.font.size = Pt(self.fig_cap_size)
         self.fig_caption.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+        # add styles
+        self.my_table = self.styles.add_style("my_text", WD_STYLE_TYPE.TABLE)
+        self.my_table.font.name = "Times New Roman"
+        self.my_table.font.size = Pt(self.table_size)
+        self.my_table.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
 
         self.heading_style = [self.styles.add_style("heading_{}".format(i), WD_STYLE_TYPE.PARAGRAPH) for i in range(3)]
         for i in range(3):
@@ -61,6 +68,19 @@ class DocxFile:
         self.doc.add_paragraph("Fig. {}. ".format(self.num_fig) + title, style=self.fig_caption)
 
         return
+
+    def add_table(self, table_items):
+        row, col = len(table_items), len(table_items[0])
+
+        table = self.doc.add_table(rows=row, cols=col, style=self.my_table)
+        for i in range(row):
+            for j in range(col):
+                table.cell(i, j).text = str(table_items[i][j])
+
+        return
+
+    def add_para(self, text):
+        self.doc.add_paragraph(text, style=self.fig_caption)
 
     def add_heading(self, context, num):
         # add heading

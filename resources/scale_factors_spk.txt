@@ -1,0 +1,10 @@
+# you need to specify the alias name and scale factors of Simpack results in this file
+# you just need to specify those need scaling
+# left column is the alias name
+# right column is the scale factor
+# @ is used to split the alias name and real name
+
+Rotor_speed@ 1 / 153
+Pitch_blade_1@ -1
+Pitch_blade_2@ -1
+Pitch_blade_3@ -1

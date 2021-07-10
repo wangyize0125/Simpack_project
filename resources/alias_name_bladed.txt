@@ -4,6 +4,7 @@
 # right column is the real variable name in GH-Bladed, which must be as same as that one in the GH-Bladed
 # third column in this file means where the loads are output, the blade stations and tower stations which are nearest
 #   to this values are selected to output
+# use : as the delimiter
 
 Time: Time from start of simulation: 0
 
