@@ -417,13 +417,13 @@ class SpkResultTab(QWidget):
             for idx, temp_filename in enumerate(selected_files):
                 try:
                     sub_ps = subprocess.Popen([
-                        "{}".format(os.environ[self.simpack_post_path]).replace("/", "\\"),         # simpack post path
+                        "{}".format(os.environ[self.simpack_post_path]),         # simpack post path
                         "-s",
-                        "{}".format(macro_filename).replace("/", "\\"),                             # macro file
+                        "{}".format(macro_filename),                             # macro file
                         "{}?{}".format(
                             temp_filename,                                                          # simpack res file
                             os.path.join(self.output_folder, pf.remove_suffix_of_file(temp_filename) + "_{}.txt".format(idx))
-                        ).replace("/", "\\")
+                        )
                     ])
                     ok = sub_ps.wait()
                 except Exception as exc:
@@ -1426,15 +1426,15 @@ class SpkBladedResultTab(QWidget):
                 for idx, temp_filename in enumerate(selected_spck):
                     try:
                         sub_ps = subprocess.Popen([
-                            "{}".format(os.environ[self.simpack_post_path]).replace("/", "\\"),  # path
+                            "{}".format(os.environ[self.simpack_post_path]),  # path
                             "-s",
-                            "{}".format(macro_filename).replace("/", "\\"),  # macro file
+                            "{}".format(macro_filename),  # macro file
                             "{}?{}".format(
                                 temp_filename,  # simpack res file
                                 os.path.join(
                                     self.output_folder,
                                     (pf.remove_suffix_of_file(temp_filename) + "_{}.txt").format(idx)
-                                ).replace("/", "\\"))
+                                ))
                         ])
                         # wait until it finished
                         ok = sub_ps.wait()
@@ -1458,7 +1458,7 @@ class SpkBladedResultTab(QWidget):
                         posted_spk_files.append(os.path.join(
                             self.output_folder,
                             (pf.remove_suffix_of_file(temp_filename) + "_{}.txt").format(idx)
-                        ).replace("/", "\\"))
+                        ))
 
                 # prepare input data for the calculation function
                 vf_spck = self.d_var_file_spk if self.l_spck_var_file.text() == "" else self.l_spck_var_file.text()
@@ -1477,7 +1477,7 @@ class SpkBladedResultTab(QWidget):
                 scale_file = self.d_scale_file if not self.l_scale_file.text() else self.l_scale_file.text()
 
                 # simpack one by one
-                for file_spck, file_bladed in zip(selected_spck, selected_bladed):
+                for file_spck, file_bladed in zip(posted_spk_files, selected_bladed):
                     try:
                         if file_spck:
                             pthread = PlotSpkBladed(
