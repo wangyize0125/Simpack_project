@@ -4,7 +4,7 @@
 # right column is the scale factor
 # @ is used to split the alias name and real name
 
-Rotor_speed@ 1 / 153
+Rotor_speed@ 1 / 152.5
 Pitch_blade_1@ -1
 Pitch_blade_2@ -1
 Pitch_blade_3@ -1

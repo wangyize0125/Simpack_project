@@ -7,6 +7,7 @@
 import os
 import matplotlib
 import numpy as np
+import rainflow as rf
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from PyQt5.QtCore import pyqtSignal, QObject
@@ -256,6 +257,9 @@ class PlotSpkBladed(QObject):
         #  simpack results scale factors
         self.scale_for_spck = dict()
 
+        # calculated Ca of the metrics
+        self.Cas = []
+
         self.__sparse_scale_spck()
 
         return
@@ -330,9 +334,18 @@ class PlotSpkBladed(QObject):
                 # scale simpack results to make them comparable
                 ss = spk_res[alias] * self.scale_for_spck[alias] if alias in self.scale_for_spck.keys() else spk_res[alias]
 
-                self.__plot(time_spk, ss, time_bladed, bladed_res[alias], self.size, file_prefix + alias)
+                # append this alias
+                self.Cas.append(alias)
+
+                Ca = self.__plot(time_spk, ss, time_bladed, bladed_res[alias], self.size, file_prefix + alias)
+
+                # append this Ca
+                self.Cas.append(Ca)
 
                 self.one_file_finished.emit(len(spk_order) - 1)
+
+        # print Ca in the docx file
+        self.print_Cas()
 
         return
 
@@ -398,6 +411,10 @@ class PlotSpkBladed(QObject):
         err_bar = round(abs(bar_spk - bar_bladed) / max(abs(bar_spk), abs(bar_bladed)) * 100, 10)
         std_spk, std_bladed = round(np.std(spck_y), 10), round(np.std(bladed_y), 10)
         err_std = round(abs(std_spk - std_bladed) / max(abs(std_spk), abs(std_bladed)) * 100, 10)
+        # rain flow count calculations
+        efl_spk = round(self.rain_flow(spck_y, spck_x[-1] - spck_x[0]), 10)
+        efl_bladed = round(self.rain_flow(bladed_y, bladed_x[-1] - bladed_x[0]), 10)
+        err_efl = round(abs(efl_spk - efl_bladed) / max(abs(efl_spk), abs(efl_bladed)) * 100, 10)
         Cr = round(np.sum((spck_y - bar_spk) * (bladed_y - bar_bladed)) / std_spk / std_bladed / total_num * 100, 10)
         Ca = (np.sum(spck_y ** 2) / np.sum(bladed_y ** 2)) ** 0.5
         Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
@@ -408,6 +425,7 @@ class PlotSpkBladed(QObject):
             ["Max", max_spk, max_bladed, err_max],
             ["Mean", bar_spk, bar_bladed, err_bar],
             ["Std", std_spk, std_bladed, err_std],
+            ["EFL", efl_spk, efl_bladed, err_efl],
             ["Phase error", " ", " ", Cr],
             ["Amplitude error", " ", " ", Ca]
         ]
@@ -415,10 +433,43 @@ class PlotSpkBladed(QObject):
         self.docx_file.add_table(table)
         self.docx_file.add_para("    ")
 
-        return
+        return Ca
+
+    def print_Cas(self):
+        col_num = 2
+        item_in_col = col_num * 2
+
+        # full fill the list
+        total_num_item = int(np.ceil(len(self.Cas) / item_in_col) * item_in_col)
+        for i in range(len(self.Cas), total_num_item):
+            self.Cas.append(" ")
+
+        # reshape the list
+        table = []
+        for i in range(int(len(self.Cas) / item_in_col)):
+            table.append(self.Cas[i * item_in_col:(i + 1) * item_in_col])
+
+        self.docx_file.add_table(table)
+        self.docx_file.add_para("    ")
 
     def one_file_loaded(self, num):
         self.one_file_finished.emit(num)
+
+    def rain_flow(self, data, tsim):
+        """
+        rain flow counting
+        """
+
+        # get the cycles in the time history
+        cycles = rf.count_cycles(data)
+        amplitudes, counts = np.array([item[0] for item in cycles]), np.array([item[1] for item in cycles])
+
+        # the s-n curve is assumed to be s^5 * n = 10000000
+        efl = np.sum(amplitudes ** 5 * counts)
+        efl = efl * (20 * 12 * 30 * 24 * 60 * 60) / (tsim * 10000000)
+        efl = efl ** 0.2
+
+        return efl
 
 
 if __name__ == "__main__":
