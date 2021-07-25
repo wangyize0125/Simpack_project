@@ -416,7 +416,10 @@ class PlotSpkBladed(QObject):
         efl_bladed = round(self.rain_flow(bladed_y, bladed_x[-1] - bladed_x[0]), 10)
         err_efl = round(abs(efl_spk - efl_bladed) / max(abs(efl_spk), abs(efl_bladed)) * 100, 10)
         Cr = round(np.sum((spck_y - bar_spk) * (bladed_y - bar_bladed)) / std_spk / std_bladed / total_num * 100, 10)
-        Ca = (np.sum(spck_y ** 2) / np.sum(bladed_y ** 2)) ** 0.5
+        # Ca = (np.sum(spck_y ** 2) / np.sum(bladed_y ** 2)) ** 0.5
+        # Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
+        # according to prof. liu's recommendation, we use the integration of abs(y) to evaluate the results
+        Ca = np.sum(np.abs(spck_y)) / np.sum(np.abs(bladed_y))
         Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
         # output
         table = [
