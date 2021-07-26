@@ -442,18 +442,37 @@ class PlotSpkBladed(QObject):
         col_num = 2
         item_in_col = col_num * 2
 
+        # find out those who do not meet the requirements
+        cas_with_fail = []
+        for i in range(int(len(self.Cas) / 2)):
+            if self.Cas[2 * i + 1] < 90:
+                cas_with_fail.append(self.Cas[2 * i])
+                cas_with_fail.append(self.Cas[2 * i + 1])
+
         # full fill the list
         total_num_item = int(np.ceil(len(self.Cas) / item_in_col) * item_in_col)
         for i in range(len(self.Cas), total_num_item):
             self.Cas.append(" ")
+        total_num_item = int(np.ceil(len(cas_with_fail) / item_in_col) * item_in_col)
+        for i in range(len(cas_with_fail), total_num_item):
+            cas_with_fail.append(" ")
 
         # reshape the list
-        table = []
+        table, table_with_fail = [], []
         for i in range(int(len(self.Cas) / item_in_col)):
             table.append(self.Cas[i * item_in_col:(i + 1) * item_in_col])
+        for i in range(int(len(cas_with_fail) / item_in_col)):
+            table_with_fail.append(cas_with_fail[i * item_in_col:(i + 1) * item_in_col])
 
+        # add a name for convenience
+        self.docx_file.add_heading("Result summary", 2)
         self.docx_file.add_table(table)
         self.docx_file.add_para("    ")
+        self.docx_file.add_heading("Result less than 90%", 2)
+        self.docx_file.add_table(table_with_fail)
+        self.docx_file.add_para("    ")
+
+        return
 
     def one_file_loaded(self, num):
         self.one_file_finished.emit(num)
