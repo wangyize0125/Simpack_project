@@ -242,7 +242,7 @@ class PlotSpkBladed(QObject):
     one_file_finished = pyqtSignal(int)  # finish one file trigger
 
     def __init__(self, var_file_spk: str, file_spk: str, var_file_bladed: str, file_bladed: str, scale_for_spck: str,
-                 output_folder: str, size: list, out_docx: docx_operation.DocxFile):
+                 output_folder: str, size: list, out_docx: docx_operation.DocxFile, prob: float):
         super(PlotSpkBladed, self).__init__()
 
         self.var_file_spk = var_file_spk
@@ -253,6 +253,8 @@ class PlotSpkBladed(QObject):
         self.output_folder = output_folder
         self.size = size
         self.docx_file = out_docx
+        self.prob = prob
+        self.fatigue_results = {}
 
         #  simpack results scale factors
         self.scale_for_spck = dict()
@@ -339,6 +341,12 @@ class PlotSpkBladed(QObject):
 
                 Ca = self.__plot(time_spk, ss, time_bladed, bladed_res[alias], self.size, file_prefix + alias)
 
+                # fatigue analysis
+                if self.prob != 0:
+                    efl_spk, total_count_spk = self.rain_flow(ss, time_spk[-1] - time_spk[0])
+                    efl_bladed, total_count_bladed = self.rain_flow(bladed_res[alias], time_bladed[-1] - time_bladed[0])
+                    self.fatigue_results[alias] = [efl_spk, total_count_spk, efl_bladed, total_count_bladed]
+
                 # append this Ca
                 self.Cas.append(Ca)
 
@@ -411,10 +419,6 @@ class PlotSpkBladed(QObject):
         err_bar = round(abs(bar_spk - bar_bladed) / max(abs(bar_spk), abs(bar_bladed)) * 100, 10)
         std_spk, std_bladed = round(np.std(spck_y), 10), round(np.std(bladed_y), 10)
         err_std = round(abs(std_spk - std_bladed) / max(abs(std_spk), abs(std_bladed)) * 100, 10)
-        # rain flow count calculations
-        efl_spk = round(self.rain_flow(spck_y, spck_x[-1] - spck_x[0]), 10)
-        efl_bladed = round(self.rain_flow(bladed_y, bladed_x[-1] - bladed_x[0]), 10)
-        err_efl = round(abs(efl_spk - efl_bladed) / max(abs(efl_spk), abs(efl_bladed)) * 100, 10)
         Cr = round(np.sum((spck_y - bar_spk) * (bladed_y - bar_bladed)) / std_spk / std_bladed / total_num * 100, 10)
         # Ca = (np.sum(spck_y ** 2) / np.sum(bladed_y ** 2)) ** 0.5
         # Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
@@ -428,7 +432,6 @@ class PlotSpkBladed(QObject):
             ["Max", max_spk, max_bladed, err_max],
             ["Mean", bar_spk, bar_bladed, err_bar],
             ["Std", std_spk, std_bladed, err_std],
-            ["EFL", efl_spk, efl_bladed, err_efl],
             ["Phase error", " ", " ", Cr],
             ["Amplitude error", " ", " ", Ca]
         ]
@@ -486,12 +489,20 @@ class PlotSpkBladed(QObject):
         cycles = rf.count_cycles(data)
         amplitudes, counts = np.array([item[0] for item in cycles]), np.array([item[1] for item in cycles])
 
-        # the s-n curve is assumed to be s^5 * n = 10000000
-        efl = np.sum(amplitudes ** 5 * counts)
-        efl = efl * (20 * 12 * 30 * 24 * 60 * 60) / (tsim * 10000000)
-        efl = efl ** 0.2
+        efls, total_counts = [], []
+        for power in (3, 5, 7, 9):
+            # the s-n curve is assumed to be s^power * n = 10000000
+            efl = np.sum(amplitudes ** power * counts)      # nothing
+            efl = efl / 10000000                            # total damage percentage = 0.* in tsim
+            efl = efl * (20 * 12 * 30 * 24 * 60 * 60 * self.prob) / tsim    # total damage in 20 years
+            # record total damage and total counts
+            efls.append(efl)
+            total_counts.append(np.sum(counts))
 
-        return efl
+        return efls, total_counts
+
+    def get_fatigue(self) -> dict:
+        return self.fatigue_results
 
 
 if __name__ == "__main__":

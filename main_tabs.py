@@ -7,8 +7,9 @@
 import os
 import types
 import subprocess
-from PyQt5.QtWidgets import QWidget, QTabWidget, QPushButton, QAbstractItemView, QLabel, QProgressBar
-from PyQt5.QtWidgets import QFileDialog, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox
+import numpy as np
+from PyQt5.QtWidgets import QWidget, QTabWidget, QPushButton, QAbstractItemView, QLabel, QProgressBar, QItemDelegate
+from PyQt5.QtWidgets import QFileDialog, QTableWidget, QTableWidgetItem, QLineEdit, QCheckBox, QHeaderView
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5 import QtGui
 
@@ -51,6 +52,8 @@ class MainTab(QTabWidget):
         self.addTab(self.spck_bladed, self.spck_bladed.name)
         self.spck_bladed.finish.connect(self.finish_slot)
         self.spck_bladed.start.connect(self.start_slot)
+
+        self.setCurrentIndex(2)
 
         return
 
@@ -919,6 +922,14 @@ def my_drop_event(self: QTableWidget, event: QtGui.QDropEvent) -> None:
     return
 
 
+class EmptyDelegate(QItemDelegate):
+    def __init__(self, parent=None):
+        super(EmptyDelegate, self).__init__(parent)
+
+    def createEditor(self, QWidget, QStyleOptionViewItem, QModelIndex):
+        return None
+
+
 class SpkBladedResultTab(QWidget):
     """
     plot and compare Simpack and Bladed results
@@ -990,6 +1001,8 @@ class SpkBladedResultTab(QWidget):
         self.bar = QProgressBar(self)
         self.choose_out_fld_btn = QPushButton(self)
         self.l_docx = QLineEdit(self)
+        self.cb_fatigue_analysis = QCheckBox(self)
+        self.fatigue_analysis = None
 
         # ui design for this tab
         self.ui_settings()
@@ -1101,13 +1114,17 @@ class SpkBladedResultTab(QWidget):
         self.l_output_folder.setFocusPolicy(Qt.NoFocus)
 
         l_word_file = QLabel(self)
-        l_word_file.setText("Word file name: ")
+        l_word_file.setText("Word name: ")
         l_word_file.setFixedSize(self.width() * 0.12, l_word_file.height())
         l_word_file.move(self.width() * 0.52, self.height() * 0.21)
 
-        self.l_docx.setFixedSize(self.width() * 0.3, self.l_docx.height())
-        self.l_docx.move(self.width() * 0.65, self.height() * 0.21)
+        self.l_docx.setFixedSize(self.width() * 0.15, self.l_docx.height())
+        self.l_docx.move(self.width() * 0.62, self.height() * 0.21)
         self.l_docx.setPlaceholderText("Default: {}.docx".format(self.d_word_filename))
+
+        self.cb_fatigue_analysis.move(self.width() * 0.782, self.height() * 0.22)
+        self.cb_fatigue_analysis.setText("Fatigue analysis")
+        self.cb_fatigue_analysis.stateChanged.connect(self.fatigue_flag_changed)
 
         self.calc_btn.setText("Plot result figures")
         self.calc_btn.setFixedSize(self.width() * 0.21, self.calc_btn.height())
@@ -1122,13 +1139,14 @@ class SpkBladedResultTab(QWidget):
 
         self.file_table.setFixedSize(self.width() * 0.9, self.height() * 0.55)
         self.file_table.move(self.width() * 0.05, self.height() * 0.39)
-        self.file_table.setColumnCount(3)
-        self.file_table.setColumnWidth(0, self.file_table.width() * 0.06)
-        self.file_table.setColumnWidth(1, self.file_table.width() * 0.47)
-        self.file_table.setColumnWidth(2, self.file_table.width() * 0.47)
-        self.file_table.setHorizontalHeaderLabels(["", "Simpack Files", "Bladed Files"])
+        self.file_table.setColumnCount(4)
+        self.file_table.setHorizontalHeaderLabels(["", "Simpack Files", "Bladed Files", "Wind speed"])
         self.file_table.cellClicked.connect(self.cell_clicked)
-        self.file_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.file_table.setEditTriggers(QAbstractItemView.DoubleClicked)
+        self.file_table.setItemDelegateForColumn(0, EmptyDelegate(self.file_table))
+        self.file_table.setItemDelegateForColumn(1, EmptyDelegate(self.file_table))
+        self.file_table.setItemDelegateForColumn(2, EmptyDelegate(self.file_table))
+        self.file_table.setColumnHidden(3, True)
         self.file_table.setDragEnabled(True)
         self.file_table.setAcceptDrops(True)
         self.file_table.viewport().setAcceptDrops(True)
@@ -1138,6 +1156,7 @@ class SpkBladedResultTab(QWidget):
         self.file_table.setSelectionBehavior(QAbstractItemView.SelectItems)
         self.file_table.setDragDropMode(QAbstractItemView.InternalMove)
         self.file_table.dropEvent = types.MethodType(my_drop_event, self.file_table)
+        self.file_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)  # auto column width
 
         return
 
@@ -1216,6 +1235,17 @@ class SpkBladedResultTab(QWidget):
                 temp_file_bladed = QTableWidgetItem("")
                 temp_file_bladed.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
                 self.file_table.setItem(i, 2, temp_file_bladed)
+
+            # add the wind speed into the table
+            ws = QTableWidgetItem("")
+            ws.setTextAlignment(Qt.AlignVCenter)
+            self.file_table.setItem(i, 3, ws)
+
+        # hidden the 3 column when fatigue analysis is not needed
+        if self.fatigue_analysis:
+            self.file_table.setColumnHidden(3, False)
+        else:
+            self.file_table.setColumnHidden(3, True)
 
         return
 
@@ -1383,6 +1413,37 @@ class SpkBladedResultTab(QWidget):
                 # nothing to do
                 msg_box = public_widgets.MsgBox(self, "Simpack and Bladed files do not match")
             else:
+                # if no wind speed determined when fatigue analysis checked, exit directly
+                # else, pick out the wind speed
+                # last_wind_speed is the previously loaded wind speed, for convenience
+                wind_speed, last_wind_speed = [], None
+                if self.fatigue_analysis:
+                    rows = self.file_table.rowCount()
+                    for i in range(rows):
+                        # selected files
+                        if self.file_table.item(i, 0).text() == self.selected:
+                            if self.file_table.item(i, 3).text().strip():
+                                last_wind_speed = float(self.file_table.item(i, 3).text())
+
+                                wind_speed.append(last_wind_speed)
+                            else:
+                                if last_wind_speed:
+                                    wind_speed.append(last_wind_speed)
+                                else:
+                                    msg_box = public_widgets.MsgBox(self, "Wind speed must be set")
+                                    return
+                sorted_wind_speed = list(set(wind_speed))
+                sorted_wind_speed.sort()
+                # calculate the probabilities of the wind speeds
+                probabilities = [0 for i in range(len(selected_spck))]
+                for p_idx, ws in enumerate(wind_speed):
+                    cul_ws = 1 - np.exp(-(ws / self.fatigue_analysis.C) ** self.fatigue_analysis.K)
+                    idx = sorted_wind_speed.index(ws)
+                    last_ws = sorted_wind_speed[idx - 1] if idx > 0 else 0
+                    cul_last_ws = 1 - np.exp(-(last_ws / self.fatigue_analysis.C) ** self.fatigue_analysis.K)
+                    # record the probability
+                    probabilities[p_idx] = cul_ws - cul_last_ws
+
                 # start calculation
                 self.start.emit()
 
@@ -1476,21 +1537,52 @@ class SpkBladedResultTab(QWidget):
                 # scale file
                 scale_file = self.d_scale_file if not self.l_scale_file.text() else self.l_scale_file.text()
 
+                fatigue = []
                 # simpack one by one
-                for file_spck, file_bladed in zip(posted_spk_files, selected_bladed):
+                for file_spck, file_bladed, prob in zip(posted_spk_files, selected_bladed, probabilities):
                     try:
                         if file_spck:
                             pthread = PlotSpkBladed(
                                 vf_spck, file_spck, vf_bld, file_bladed, scale_file,
-                                self.output_folder, [x, y], docx_file
+                                self.output_folder, [x, y], docx_file, prob
                             )
                             pthread.one_file_finished.connect(self.upgrade_bar)
                             pthread.run()
+
+                            if self.fatigue_analysis:
+                                fatigue.append(pthread.get_fatigue())
                     except Exception as exc:
                         err_box = public_widgets.ErrBox(self, str(exc))
 
                         # record flag
                         success_flag[posted_spk_files.index(file_spck)] = False
+
+                # fatigue analysis
+                if self.fatigue_analysis:
+                    for power_idx, power in enumerate([3, 5, 7, 9]):
+                        aliases = fatigue[0].keys()
+                        alias_fatigue = [["   ", "Simpack", "GH-Bladed", "Accuracy"]]
+                        # loop for each position
+                        for alias in aliases:
+                            temp_alias_fatigue = [alias]
+                            spk_fatigue, spk_total_count, bladed_fatigue, bladed_total_count = 0, 0, 0, 0
+                            for temp_fatigue in fatigue:
+                                spk_fatigue += temp_fatigue[alias][0][power_idx]
+                                spk_total_count += temp_fatigue[alias][1][power_idx]
+                                bladed_fatigue += temp_fatigue[alias][2][power_idx]
+                                bladed_total_count += temp_fatigue[alias][3][power_idx]
+                            # all damage are encountered
+                            spk_fatigue = round((spk_fatigue * 10000000 / spk_total_count) ** (1 / power), 6)
+                            bladed_fatigue = round((bladed_fatigue * 10000000 / bladed_total_count) ** (1 / power), 6)
+                            temp_alias_fatigue.append(spk_fatigue)
+                            temp_alias_fatigue.append(bladed_fatigue)
+                            temp_alias_fatigue.append(round(
+                                (1 - abs(spk_fatigue - bladed_fatigue) / max(spk_fatigue, bladed_fatigue)) * 100, 6)
+                            )
+                            alias_fatigue.append(temp_alias_fatigue)
+                        # alias fatigue is a table with all the fatigues
+                        docx_file.add_heading("Fatigue (Power = {})".format(power), 1)
+                        docx_file.add_table(alias_fatigue)
 
                 # show the flags
                 self.show_success_flag(success_flag)
@@ -1525,5 +1617,33 @@ class SpkBladedResultTab(QWidget):
                 success_flag = QTableWidgetItem(self.success if flags[select_idx] else self.fail)
                 success_flag.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.file_table.setItem(i, 0, success_flag)
+
+        return
+
+    def fatigue_flag_changed(self, flag):
+        """
+        check status of fatigue analysis changed
+        """
+
+        if flag:
+            self.fatigue_analysis = public_widgets.FatigueAnalysis(self, (300, 150))    # define fatigue analysis
+            self.fatigue_analysis.exec()
+
+            # only when the variables are set, the following logic can be run
+            if self.fatigue_analysis.C:
+                self.file_table.setColumnHidden(3, False)
+                # change the name of the column
+                self.file_table.horizontalHeaderItem(3).setText("Wind speed (Weibull: C = {:.2f}, K = {:.2f})".format(
+                    self.fatigue_analysis.C, self.fatigue_analysis.K
+                ))
+            # if they are None, the check box be false
+            else:
+                self.fatigue_analysis = None
+                self.cb_fatigue_analysis.setCheckState(False)
+        # unchecked
+        else:
+            self.fatigue_analysis = None        # clear the fatigue analysis
+
+            self.file_table.setColumnHidden(3, True)     # fourth column is the wind speed
 
         return
