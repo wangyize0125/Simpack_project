@@ -1442,7 +1442,7 @@ class SpkBladedResultTab(QWidget):
                     last_ws = sorted_wind_speed[idx - 1] if idx > 0 else 0
                     cul_last_ws = 1 - np.exp(-(last_ws / self.fatigue_analysis.C) ** self.fatigue_analysis.K)
                     # record the probability
-                    probabilities[p_idx] = cul_ws - cul_last_ws
+                    probabilities[p_idx] = (cul_ws - cul_last_ws) / self.count_list(wind_speed, ws)
 
                 # start calculation
                 self.start.emit()
@@ -1552,7 +1552,7 @@ class SpkBladedResultTab(QWidget):
                             if self.fatigue_analysis:
                                 fatigue.append(pthread.get_fatigue())
                     except Exception as exc:
-                        err_box = public_widgets.ErrBox(self, str(exc))
+                        err_box = public_widgets.ErrBox(self, "{}: {}".format(file_spck, str(exc)))
 
                         # record flag
                         success_flag[posted_spk_files.index(file_spck)] = False
@@ -1597,6 +1597,14 @@ class SpkBladedResultTab(QWidget):
                 self.setEnabled(True)
 
         return
+
+    def count_list(self, a_list, a_item) -> int:
+        count = 0
+        for item in a_list:
+            if item == a_item:
+                count += 1
+
+        return count
 
     def upgrade_bar(self, num):
         self.bar.setValue(self.bar.value() + self.step_size / num)
