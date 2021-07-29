@@ -1581,7 +1581,7 @@ class SpkBladedResultTab(QWidget):
                             )
                             alias_fatigue.append(temp_alias_fatigue)
                         # alias fatigue is a table with all the fatigues
-                        docx_file.add_heading("Fatigue (Power = {})".format(power), 1)
+                        docx_file.add_heading("Accumulated fatigue (power = {})".format(power), 1)
                         docx_file.add_table(alias_fatigue)
 
                 # show the flags

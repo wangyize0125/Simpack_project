@@ -261,6 +261,8 @@ class PlotSpkBladed(QObject):
 
         # calculated Ca of the metrics
         self.Cas = []
+        self.fatigue = [[["    ", "Simpack", "GH-Bladed", "Accuracy"]], [["    ", "Simpack", "GH-Bladed", "Accuracy"]],
+                        [["    ", "Simpack", "GH-Bladed", "Accuracy"]], [["    ", "Simpack", "GH-Bladed", "Accuracy"]]]
 
         self.__sparse_scale_spck()
 
@@ -347,13 +349,32 @@ class PlotSpkBladed(QObject):
                     efl_bladed, total_count_bladed = self.rain_flow(bladed_res[alias], time_bladed[-1] - time_bladed[0])
                     self.fatigue_results[alias] = [efl_spk, total_count_spk, efl_bladed, total_count_bladed]
 
+                    for index, power, es, tcs, eb, tcb in zip([0, 1, 2, 3], [3, 5, 7, 9], efl_spk, total_count_spk, efl_bladed, total_count_bladed):
+                        # turn to 20 years
+                        fatigue_spk = (es * 10000000 / tcs) ** (1 / power)
+                        fatigue_bladed = (eb * 10000000 / tcb) ** (1 / power)
+                        fatigue_err = (1 - abs(fatigue_spk - fatigue_bladed) / max(fatigue_spk, fatigue_bladed)) * 100
+
+                        self.fatigue[index].append([alias, fatigue_spk, fatigue_bladed, fatigue_err])
+
                 # append this Ca
                 self.Cas.append(Ca)
 
                 self.one_file_finished.emit(len(spk_order) - 1)
 
         # print Ca in the docx file
-        self.print_Cas()
+        self.print_cas()
+
+        # fatigue analysis
+        if self.prob != 0:
+            self.docx_file.add_heading("Fatigue (power = {})".format(3), 2)
+            self.docx_file.add_table(self.fatigue[0])
+            self.docx_file.add_heading("Fatigue (power = {})".format(5), 2)
+            self.docx_file.add_table(self.fatigue[1])
+            self.docx_file.add_heading("Fatigue (power = {})".format(7), 2)
+            self.docx_file.add_table(self.fatigue[2])
+            self.docx_file.add_heading("Fatigue (power = {})".format(9), 2)
+            self.docx_file.add_table(self.fatigue[3])
 
         return
 
@@ -425,6 +446,7 @@ class PlotSpkBladed(QObject):
         # according to prof. liu's recommendation, we use the integration of abs(y) to evaluate the results
         Ca = np.sum(np.abs(spck_y)) / np.sum(np.abs(bladed_y))
         Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
+
         # output
         table = [
             [" ", "Simpack", "GH-Bladed", "Error"],
@@ -441,7 +463,7 @@ class PlotSpkBladed(QObject):
 
         return Ca
 
-    def print_Cas(self):
+    def print_cas(self):
         col_num = 2
         item_in_col = col_num * 2
 
@@ -497,7 +519,7 @@ class PlotSpkBladed(QObject):
             efl = efl * (20 * 12 * 30 * 24 * 60 * 60 * self.prob) / tsim    # total damage in 20 years
             # record total damage and total counts
             efls.append(efl)
-            total_counts.append(np.sum(counts))
+            total_counts.append(np.sum(counts) * (20 * 12 * 30 * 24 * 60 * 60 * self.prob) / tsim)
 
         return efls, total_counts
 
