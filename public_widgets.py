@@ -37,7 +37,7 @@ class FatigueAnalysis(QDialog):
     define the weibull distributions and auto wind speed fill in
     """
 
-    default_C = 2 * 7.4 / (3.1415926535 ** 0.5 / 2)
+    default_C = 2 * 7.4 / 3.1415926535 ** 0.5
     default_K = 2
 
     def __init__(self, parent=None, size=(600, 400)):
