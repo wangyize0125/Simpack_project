@@ -260,7 +260,7 @@ class PlotSpkBladed(QObject):
         self.scale_for_spck = dict()
 
         # calculated Ca of the metrics
-        self.Cas = []
+        self.Cas = [["   ", "Simpack", "GH-Bladed", "Accuracy"]]
         self.fatigue = [[["    ", "Simpack", "GH-Bladed", "Accuracy"]], [["    ", "Simpack", "GH-Bladed", "Accuracy"]],
                         [["    ", "Simpack", "GH-Bladed", "Accuracy"]], [["    ", "Simpack", "GH-Bladed", "Accuracy"]]]
 
@@ -338,10 +338,7 @@ class PlotSpkBladed(QObject):
                 # scale simpack results to make them comparable
                 ss = spk_res[alias] * self.scale_for_spck[alias] if alias in self.scale_for_spck.keys() else spk_res[alias]
 
-                # append this alias
-                self.Cas.append(alias)
-
-                Ca = self.__plot(time_spk, ss, time_bladed, bladed_res[alias], self.size, file_prefix + alias)
+                max_error = self.__plot(time_spk, ss, time_bladed, bladed_res[alias], self.size, file_prefix + alias)
 
                 # fatigue analysis
                 if self.prob != 0:
@@ -356,14 +353,11 @@ class PlotSpkBladed(QObject):
                         fatigue_err = (1 - abs(fatigue_spk - fatigue_bladed) / max(fatigue_spk, fatigue_bladed)) * 100
 
                         self.fatigue[index].append([alias, fatigue_spk, fatigue_bladed, fatigue_err])
-
-                # append this Ca
-                self.Cas.append(Ca)
+                else:
+                    # append this Ca
+                    self.Cas.append([alias] + max_error)
 
                 self.one_file_finished.emit(len(spk_order) - 1)
-
-        # print Ca in the docx file
-        self.print_cas()
 
         # fatigue analysis
         if self.prob != 0:
@@ -375,6 +369,9 @@ class PlotSpkBladed(QObject):
             self.docx_file.add_table(self.fatigue[2])
             self.docx_file.add_heading("Fatigue (power = {})".format(9), 2)
             self.docx_file.add_table(self.fatigue[3])
+        else:
+            self.docx_file.add_heading("Ultimate", 2)
+            self.docx_file.add_table(self.Cas)
 
         return
 
@@ -432,15 +429,8 @@ class PlotSpkBladed(QObject):
         plt.close()
 
         # output docx and some important metrics
-        max_spk, max_bladed = round(np.max(spck_y), 10), round(np.max(bladed_y), 10)
-        err_max = round(abs(max_spk - max_bladed) / max(abs(max_spk), abs(max_bladed)) * 100, 10)
-        min_spk, min_bladed = round(np.min(spck_y), 10), round(np.min(bladed_y), 10)
-        err_min = round(abs(min_spk - min_bladed) / max(abs(min_spk), abs(min_bladed)) * 100, 10)
-        bar_spk, bar_bladed = round(np.mean(spck_y), 10), round(np.mean(bladed_y), 10)
-        err_bar = round(abs(bar_spk - bar_bladed) / max(abs(bar_spk), abs(bar_bladed)) * 100, 10)
-        std_spk, std_bladed = round(np.std(spck_y), 10), round(np.std(bladed_y), 10)
-        err_std = round(abs(std_spk - std_bladed) / max(abs(std_spk), abs(std_bladed)) * 100, 10)
-        Cr = round(np.sum((spck_y - bar_spk) * (bladed_y - bar_bladed)) / std_spk / std_bladed / total_num * 100, 10)
+        max_spk, max_bladed = round(np.max(np.abs(spck_y)), 10), round(np.max(np.abs(bladed_y)), 10)
+        err_max = round(100 - abs(max_spk - max_bladed) / max(max_spk, max_bladed) * 100, 10)
         # Ca = (np.sum(spck_y ** 2) / np.sum(bladed_y ** 2)) ** 0.5
         # Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
         # according to prof. liu's recommendation, we use the integration of abs(y) to evaluate the results
@@ -450,54 +440,13 @@ class PlotSpkBladed(QObject):
         # output
         table = [
             [" ", "Simpack", "GH-Bladed", "Error"],
-            ["Min", min_spk, min_bladed, err_min],
-            ["Max", max_spk, max_bladed, err_max],
-            ["Mean", bar_spk, bar_bladed, err_bar],
-            ["Std", std_spk, std_bladed, err_std],
-            ["Phase error", " ", " ", Cr],
             ["Amplitude error", " ", " ", Ca]
         ]
         self.docx_file.add_fig(output_name + ".png", size, os.path.basename(output_name))
         self.docx_file.add_table(table)
         self.docx_file.add_para("    ")
 
-        return Ca
-
-    def print_cas(self):
-        col_num = 2
-        item_in_col = col_num * 2
-
-        # find out those who do not meet the requirements
-        cas_with_fail = []
-        for i in range(int(len(self.Cas) / 2)):
-            if self.Cas[2 * i + 1] < 90:
-                cas_with_fail.append(self.Cas[2 * i])
-                cas_with_fail.append(self.Cas[2 * i + 1])
-
-        # full fill the list
-        total_num_item = int(np.ceil(len(self.Cas) / item_in_col) * item_in_col)
-        for i in range(len(self.Cas), total_num_item):
-            self.Cas.append(" ")
-        total_num_item = int(np.ceil(len(cas_with_fail) / item_in_col) * item_in_col)
-        for i in range(len(cas_with_fail), total_num_item):
-            cas_with_fail.append(" ")
-
-        # reshape the list
-        table, table_with_fail = [], []
-        for i in range(int(len(self.Cas) / item_in_col)):
-            table.append(self.Cas[i * item_in_col:(i + 1) * item_in_col])
-        for i in range(int(len(cas_with_fail) / item_in_col)):
-            table_with_fail.append(cas_with_fail[i * item_in_col:(i + 1) * item_in_col])
-
-        # add a name for convenience
-        self.docx_file.add_heading("Result summary", 2)
-        self.docx_file.add_table(table)
-        self.docx_file.add_para("    ")
-        self.docx_file.add_heading("Result less than 90%", 2)
-        self.docx_file.add_table(table_with_fail)
-        self.docx_file.add_para("    ")
-
-        return
+        return [max_spk, max_bladed, err_max]
 
     def one_file_loaded(self, num):
         self.one_file_finished.emit(num)
