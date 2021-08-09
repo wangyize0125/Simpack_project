@@ -1537,7 +1537,7 @@ class SpkBladedResultTab(QWidget):
                 # scale file
                 scale_file = self.d_scale_file if not self.l_scale_file.text() else self.l_scale_file.text()
 
-                fatigue = []
+                fatigue, cas = [], []
                 # simpack one by one
                 for file_spck, file_bladed, prob in zip(posted_spk_files, selected_bladed, probabilities):
                     try:
@@ -1551,6 +1551,8 @@ class SpkBladedResultTab(QWidget):
 
                             if self.fatigue_analysis:
                                 fatigue.append(pthread.get_fatigue())
+                            else:
+                                cas.append(pthread.get_ultimate())
                     except Exception as exc:
                         err_box = public_widgets.ErrBox(self, "{}: {}".format(file_spck, str(exc)))
 
@@ -1583,6 +1585,29 @@ class SpkBladedResultTab(QWidget):
                         # alias fatigue is a table with all the fatigues
                         docx_file.add_heading("Accumulated fatigue (power = {})".format(power), 1)
                         docx_file.add_table(alias_fatigue)
+                # ultimate analysis
+                else:
+                    aliases = [cas[0][pos_idx][0] for pos_idx in range(1, len(cas[0]))]
+                    alias_ultimate = [["    ", "Simpack", "GH-Bladed", "Accuracy"]]
+                    # loop for each position
+                    for alias_idx, alias in enumerate(aliases):
+                        temp_alias_ultimate = [alias]
+
+                        ultimates_spck = [cas[i][alias_idx + 1][1] for i in range(len(cas))]
+                        ultimates_bladed = [cas[i][alias_idx + 1][2] for i in range(len(cas))]
+                        ultimate_spck = max(ultimates_spck)
+                        ultimate_bladed = max(ultimates_bladed)
+
+                        temp_alias_ultimate.append(round(ultimate_spck, 6))
+                        temp_alias_ultimate.append(round(ultimate_bladed, 6))
+                        temp_alias_ultimate.append(round(
+                            (1 - abs(ultimate_spck - ultimate_bladed) / max(ultimate_spck, ultimate_bladed)) * 100, 6
+                        ))
+
+                        alias_ultimate.append(temp_alias_ultimate)
+                    # alias fatigue is a table with all the fatigues
+                    docx_file.add_heading("Ultimate summary", 1)
+                    docx_file.add_table(alias_ultimate)
 
                 # show the flags
                 self.show_success_flag(success_flag)

@@ -439,8 +439,8 @@ class PlotSpkBladed(QObject):
 
         # output
         table = [
-            [" ", "Simpack", "GH-Bladed", "Error"],
-            ["Amplitude error", " ", " ", Ca]
+            [" ", "Simpack", "GH-Bladed", "Accuracy"],
+            ["Amplitude accuracy", " ", " ", Ca]
         ]
         self.docx_file.add_fig(output_name + ".png", size, os.path.basename(output_name))
         self.docx_file.add_table(table)
@@ -474,6 +474,9 @@ class PlotSpkBladed(QObject):
 
     def get_fatigue(self) -> dict:
         return self.fatigue_results
+
+    def get_ultimate(self) -> list:
+        return self.Cas
 
 
 if __name__ == "__main__":
