@@ -1593,16 +1593,23 @@ class SpkBladedResultTab(QWidget):
                     for alias_idx, alias in enumerate(aliases):
                         temp_alias_ultimate = [alias]
 
-                        ultimates_spck = [cas[i][alias_idx + 1][1] for i in range(len(cas))]
-                        ultimates_bladed = [cas[i][alias_idx + 1][2] for i in range(len(cas))]
-                        ultimate_spck = max(ultimates_spck)
-                        ultimate_bladed = max(ultimates_bladed)
+                        # ultimates_spck = [cas[i][alias_idx + 1][1] for i in range(len(cas))]
+                        # ultimates_bladed = [cas[i][alias_idx + 1][2] for i in range(len(cas))]
+                        # ultimate_spck = max(ultimates_spck)
+                        # ultimate_bladed = max(ultimates_bladed)
+                        #
+                        # temp_alias_ultimate.append(round(ultimate_spck, 6))
+                        # temp_alias_ultimate.append(round(ultimate_bladed, 6))
+                        # temp_alias_ultimate.append(round(
+                        #     (1 - abs(ultimate_spck - ultimate_bladed) / max(ultimate_spck, ultimate_bladed)) * 100, 6
+                        # ))
 
-                        temp_alias_ultimate.append(round(ultimate_spck, 6))
-                        temp_alias_ultimate.append(round(ultimate_bladed, 6))
-                        temp_alias_ultimate.append(round(
-                            (1 - abs(ultimate_spck - ultimate_bladed) / max(ultimate_spck, ultimate_bladed)) * 100, 6
-                        ))
+                        temp_alias_ultimate.append("    ")
+                        temp_alias_ultimate.append("    ")
+
+                        accuracies = [cas[i][alias_idx + 1][3] for i in range(len(cas))]
+                        mean_accuracy = np.average(accuracies)
+                        temp_alias_ultimate.append(round(mean_accuracy, 6))
 
                         alias_ultimate.append(temp_alias_ultimate)
                     # alias fatigue is a table with all the fatigues
