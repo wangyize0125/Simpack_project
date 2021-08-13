@@ -1587,34 +1587,41 @@ class SpkBladedResultTab(QWidget):
                         docx_file.add_table(alias_fatigue)
                 # ultimate analysis
                 else:
-                    aliases = [cas[0][pos_idx][0] for pos_idx in range(1, len(cas[0]))]
-                    alias_ultimate = [["    ", "Simpack", "GH-Bladed", "Accuracy"]]
-                    # loop for each position
-                    for alias_idx, alias in enumerate(aliases):
-                        temp_alias_ultimate = [alias]
-
-                        # ultimates_spck = [cas[i][alias_idx + 1][1] for i in range(len(cas))]
-                        # ultimates_bladed = [cas[i][alias_idx + 1][2] for i in range(len(cas))]
-                        # ultimate_spck = max(ultimates_spck)
-                        # ultimate_bladed = max(ultimates_bladed)
-                        #
-                        # temp_alias_ultimate.append(round(ultimate_spck, 6))
-                        # temp_alias_ultimate.append(round(ultimate_bladed, 6))
-                        # temp_alias_ultimate.append(round(
-                        #     (1 - abs(ultimate_spck - ultimate_bladed) / max(ultimate_spck, ultimate_bladed)) * 100, 6
-                        # ))
-
-                        temp_alias_ultimate.append("    ")
-                        temp_alias_ultimate.append("    ")
-
-                        accuracies = [cas[i][alias_idx + 1][3] for i in range(len(cas))]
-                        mean_accuracy = np.average(accuracies)
-                        temp_alias_ultimate.append(round(mean_accuracy, 6))
-
-                        alias_ultimate.append(temp_alias_ultimate)
+                    num_greater_than_90 = []
+                    for case_result in cas:
+                        accuracies = np.array([case_result[pos_idx][3] for pos_idx in range(1, len(case_result))])
+                        num_greater_than_90.append(np.argwhere(accuracies >= 90).shape[0])
+                    best_idx = np.argmax(num_greater_than_90)
+                    docx_file.add_heading("Best at: {}".format(2 * best_idx + 1), 1)
+                    docx_file.add_table(cas[best_idx])
+                    # aliases = [cas[0][pos_idx][0] for pos_idx in range(1, len(cas[0]))]
+                    # alias_ultimate = [["    ", "Simpack", "GH-Bladed", "Accuracy"]]
+                    # # loop for each position
+                    # for alias_idx, alias in enumerate(aliases):
+                    #     temp_alias_ultimate = [alias]
+                    #
+                    #     # ultimates_spck = [cas[i][alias_idx + 1][1] for i in range(len(cas))]
+                    #     # ultimates_bladed = [cas[i][alias_idx + 1][2] for i in range(len(cas))]
+                    #     # ultimate_spck = max(ultimates_spck)
+                    #     # ultimate_bladed = max(ultimates_bladed)
+                    #     #
+                    #     # temp_alias_ultimate.append(round(ultimate_spck, 6))
+                    #     # temp_alias_ultimate.append(round(ultimate_bladed, 6))
+                    #     # temp_alias_ultimate.append(round(
+                    #     #     (1 - abs(ultimate_spck - ultimate_bladed) / max(ultimate_spck, ultimate_bladed)) * 100, 6
+                    #     # ))
+                    #
+                    #     temp_alias_ultimate.append("    ")
+                    #     temp_alias_ultimate.append("    ")
+                    #
+                    #     accuracies = [cas[i][alias_idx + 1][3] for i in range(len(cas))]
+                    #     mean_accuracy = np.average(accuracies)
+                    #     temp_alias_ultimate.append(round(mean_accuracy, 6))
+                    #
+                    #     alias_ultimate.append(temp_alias_ultimate)
                     # alias fatigue is a table with all the fatigues
-                    docx_file.add_heading("Ultimate summary", 1)
-                    docx_file.add_table(alias_ultimate)
+                    # docx_file.add_heading("Ultimate summary", 1)
+                    # docx_file.add_table(alias_ultimate)
 
                 # show the flags
                 self.show_success_flag(success_flag)

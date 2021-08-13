@@ -359,19 +359,19 @@ class PlotSpkBladed(QObject):
 
                 self.one_file_finished.emit(len(spk_order) - 1)
 
-        # fatigue analysis
-        if self.prob != 0:
-            self.docx_file.add_heading("Fatigue (power = {})".format(3), 2)
-            self.docx_file.add_table(self.fatigue[0])
-            self.docx_file.add_heading("Fatigue (power = {})".format(5), 2)
-            self.docx_file.add_table(self.fatigue[1])
-            self.docx_file.add_heading("Fatigue (power = {})".format(7), 2)
-            self.docx_file.add_table(self.fatigue[2])
-            self.docx_file.add_heading("Fatigue (power = {})".format(9), 2)
-            self.docx_file.add_table(self.fatigue[3])
-        else:
-            self.docx_file.add_heading("Ultimate", 2)
-            self.docx_file.add_table(self.Cas)
+        # # fatigue analysis
+        # if self.prob != 0:
+        #     self.docx_file.add_heading("Fatigue (power = {})".format(3), 2)
+        #     self.docx_file.add_table(self.fatigue[0])
+        #     self.docx_file.add_heading("Fatigue (power = {})".format(5), 2)
+        #     self.docx_file.add_table(self.fatigue[1])
+        #     self.docx_file.add_heading("Fatigue (power = {})".format(7), 2)
+        #     self.docx_file.add_table(self.fatigue[2])
+        #     self.docx_file.add_heading("Fatigue (power = {})".format(9), 2)
+        #     self.docx_file.add_table(self.fatigue[3])
+        # else:
+        #     self.docx_file.add_heading("Ultimate", 2)
+        #     self.docx_file.add_table(self.Cas)
 
         return
 
@@ -429,24 +429,24 @@ class PlotSpkBladed(QObject):
         plt.close()
 
         # output docx and some important metrics
-        max_spk, max_bladed = round(np.max(np.abs(spck_y)), 10), round(np.max(np.abs(bladed_y)), 10)
-        err_max = round(100 - abs(max_spk - max_bladed) / max(max_spk, max_bladed) * 100, 10)
+        # max_spk, max_bladed = round(np.max(np.abs(spck_y)), 10), round(np.max(np.abs(bladed_y)), 10)
+        # err_max = round(100 - abs(max_spk - max_bladed) / max(max_spk, max_bladed) * 100, 10)
         # Ca = (np.sum(spck_y ** 2) / np.sum(bladed_y ** 2)) ** 0.5
         # Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
         # according to prof. liu's recommendation, we use the integration of abs(y) to evaluate the results
         Ca = np.sum(np.abs(spck_y)) / np.sum(np.abs(bladed_y))
         Ca = round(100 / Ca if Ca > 1 else Ca * 100, 10)
 
-        # output
-        table = [
-            [" ", "Simpack", "GH-Bladed", "Accuracy"],
-            ["Amplitude accuracy", " ", " ", Ca]
-        ]
+        # # output
+        # table = [
+        #     [" ", "Simpack", "GH-Bladed", "Accuracy"],
+        #     ["Amplitude accuracy", " ", " ", Ca]
+        # ]
         self.docx_file.add_fig(output_name + ".png", size, os.path.basename(output_name))
-        self.docx_file.add_table(table)
+        # self.docx_file.add_table(table)
         self.docx_file.add_para("    ")
 
-        return [max_spk, max_bladed, err_max]
+        return ["    ", "    ", Ca]
 
     def one_file_loaded(self, num):
         self.one_file_finished.emit(num)
